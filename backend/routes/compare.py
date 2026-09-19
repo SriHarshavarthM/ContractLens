@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from services.gemini_client import call_gemini
+from services.security import get_current_user
 
 router = APIRouter()
 
@@ -19,7 +20,7 @@ SYSTEM_PROMPT = (
 )
 
 @router.post("/compare")
-async def compare_contracts(req: CompareRequest):
+async def compare_contracts(req: CompareRequest, current_user: dict = Depends(get_current_user)):
     if not req.contract_a.strip() or not req.contract_b.strip():
         raise HTTPException(status_code=400, detail="Both Contract A and Contract B are required")
     

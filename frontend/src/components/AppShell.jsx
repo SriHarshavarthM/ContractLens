@@ -194,7 +194,7 @@ export default function AppShell({ children }) {
                 title="Account Settings"
               >
                 <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow">
-                  {user?.avatar_initials || 'PD'}
+                  {user?.avatar_initials || user?.email?.[0]?.toUpperCase() || 'U'}
                 </div>
               </button>
 
@@ -202,13 +202,13 @@ export default function AppShell({ children }) {
                 <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#141417] rounded-2xl shadow-2xl border border-zinc-200 dark:border-[#27272A] py-3 z-50 animate-fade-in text-zinc-900 dark:text-zinc-100">
                   <div className="px-4 pb-3 border-b border-zinc-100 dark:border-[#27272A]">
                     <div className="font-bold text-xs text-zinc-900 dark:text-white">
-                      {user?.name || 'Panji Dwi'}
+                      {user?.name || 'User'}
                     </div>
                     <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                      {user?.email || 'demo@contractlens.ai'}
+                      {user?.email || 'Not signed in'}
                     </div>
                     <div className="mt-1 text-[10px] inline-block px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200 dark:border-emerald-800">
-                      {user?.role || 'Lead Legal Counsel'}
+                      {user?.role || 'Contract Analyst'}
                     </div>
                   </div>
 

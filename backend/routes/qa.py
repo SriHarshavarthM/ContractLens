@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 from services.gemini_client import call_gemini
+from services.security import get_current_user
 
 router = APIRouter()
 
@@ -23,7 +24,7 @@ SYSTEM_PROMPT = (
 )
 
 @router.post("/qa")
-async def answer_question(req: QARequest):
+async def answer_question(req: QARequest, current_user: dict = Depends(get_current_user)):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Question is required")
     if not req.contract_text.strip():

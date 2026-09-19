@@ -1,7 +1,9 @@
-from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi import APIRouter, HTTPException, Path, Query, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from services.supabase_client import supabase
+from services.security import get_current_user
+from services.ownership import assert_owns_contract
 
 router = APIRouter()
 
@@ -9,14 +11,14 @@ class StatusUpdate(BaseModel):
     status: str
 
 @router.get("/contracts")
-async def list_contracts():
-    """List all contracts from Supabase with basic metadata and health_score."""
+async def list_contracts(current_user: dict = Depends(get_current_user)):
+    """List the authenticated user's contracts from Supabase with metadata and health_score."""
     if not supabase:
         return []
-    
+
     try:
-        # Fetch contracts
-        res = supabase.table("contracts").select("id, name, status, uploaded_at").order("uploaded_at", desc=True).execute()
+        # Fetch only contracts owned by the verified user.
+        res = supabase.table("contracts").select("id, name, status, uploaded_at").eq("user_id", current_user["sub"]).order("uploaded_at", desc=True).execute()
         contracts_list = res.data or []
 
         # Enrich with health_score from contract_extractions if available
@@ -34,13 +36,19 @@ async def list_contracts():
         return []
 
 @router.get("/contracts/{contract_id}")
-async def get_contract_detail(contract_id: str = Path(...)):
-    """Get full contract + extractions + obligations + flags for a contract."""
+async def get_contract_detail(
+    contract_id: str = Path(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Get full contract + extractions + obligations + flags for a contract the user owns."""
     if not supabase:
         raise HTTPException(status_code=503, detail="Supabase connection not configured")
 
+    # Ownership check first: a user may only read their own contract.
+    assert_owns_contract(current_user, contract_id)
+
     try:
-        c_res = supabase.table("contracts").select("*").eq("id", contract_id).single().execute()
+        c_res = supabase.table("contracts").select("*").eq("id", contract_id).eq("user_id", current_user["sub"]).single().execute()
         contract = c_res.data
         if not contract:
             raise HTTPException(status_code=404, detail="Contract not found")
@@ -68,30 +76,41 @@ async def get_contract_detail(contract_id: str = Path(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/contracts/{contract_id}")
-async def delete_contract(contract_id: str = Path(...)):
-    """Delete contract and all related records (CASCADE handles related tables)."""
+async def delete_contract(
+    contract_id: str = Path(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Delete a contract owned by the user (CASCADE handles related records)."""
     if not supabase:
         raise HTTPException(status_code=503, detail="Supabase connection not configured")
 
+    assert_owns_contract(current_user, contract_id)
+
     try:
-        res = supabase.table("contracts").delete().eq("id", contract_id).execute()
+        res = supabase.table("contracts").delete().eq("id", contract_id).eq("user_id", current_user["sub"]).execute()
         return {"status": "success", "deleted_id": contract_id}
     except Exception as e:
         print(f"[contracts.py] Error deleting contract {contract_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.patch("/contracts/{contract_id}/status")
-async def update_contract_status(contract_id: str, data: StatusUpdate):
-    """Update status field (active/expiring/expired)."""
+async def update_contract_status(
+    contract_id: str,
+    data: StatusUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    """Update status field (active/expiring/expired) for a contract owned by the user."""
     if not supabase:
         raise HTTPException(status_code=503, detail="Supabase connection not configured")
+
+    assert_owns_contract(current_user, contract_id)
 
     valid_statuses = ["active", "expiring", "expired"]
     if data.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Status must be one of: {valid_statuses}")
 
     try:
-        res = supabase.table("contracts").update({"status": data.status}).eq("id", contract_id).execute()
+        res = supabase.table("contracts").update({"status": data.status}).eq("id", contract_id).eq("user_id", current_user["sub"]).execute()
         return {"status": "success", "contract_id": contract_id, "new_status": data.status}
     except Exception as e:
         print(f"[contracts.py] Error updating status for {contract_id}: {e}")

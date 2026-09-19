@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -14,10 +14,11 @@ from routes import (
     qa,
     summary,
     alerts,
-    auth,
     contracts,
 )
 from services import gemini_client
+from services.security import get_current_user
+from services.ownership import owns_contract
 
 app = FastAPI(
     title="ContractLens Backend API",
@@ -35,7 +36,6 @@ app.add_middleware(
 )
 
 # Register route modules
-app.include_router(auth.router, tags=["Authentication"])
 app.include_router(contracts.router, tags=["Contracts"])
 app.include_router(upload.router, tags=["Upload"])
 app.include_router(extract.router, tags=["Extraction"])
@@ -72,19 +72,19 @@ def health_check():
     }
 
 @app.get("/debug/ai")
-async def debug_ai():
+async def debug_ai(current_user: dict = Depends(get_current_user)):
     from services.gemini_client import USE_FALLBACK, GEMINI_API_KEY, PRIMARY_MODEL
     return {
         "api_key_loaded": bool(GEMINI_API_KEY),
-        "api_key_prefix": GEMINI_API_KEY[:8] + "..." if GEMINI_API_KEY else None,
         "using_fallback": USE_FALLBACK,
         "model": PRIMARY_MODEL if not USE_FALLBACK else "fallback-engine",
+        "authenticated_user": current_user["sub"],
         "status": "AI active" if not USE_FALLBACK else "Fallback mode"
     }
 
-def save_extraction_supabase(payload: dict, data: dict):
+def save_extraction_supabase(payload: dict, data: dict, current_user: dict):
     contract_id = payload.get("contract_id")
-    if supabase and contract_id:
+    if supabase and contract_id and owns_contract(current_user, contract_id):
         try:
             ext_payload = {
                 "contract_id": contract_id,
@@ -102,10 +102,10 @@ def save_extraction_supabase(payload: dict, data: dict):
         except Exception as e:
             print(f"[extract/stream] Supabase save error: {e}")
 
-def save_obligations_supabase(payload: dict, data: dict):
+def save_obligations_supabase(payload: dict, data: dict, current_user: dict):
     contract_id = payload.get("contract_id")
     obligations_list = data.get("obligations", [])
-    if supabase and contract_id and obligations_list:
+    if supabase and contract_id and obligations_list and owns_contract(current_user, contract_id):
         try:
             records = []
             for ob in obligations_list:
@@ -125,7 +125,7 @@ def save_obligations_supabase(payload: dict, data: dict):
         except Exception as e:
             print(f"[obligations/stream] Supabase save error: {e}")
 
-def make_stream_response(system_prompt: str, payload: dict, post_process_fn=None):
+def make_stream_response(system_prompt: str, payload: dict, current_user: dict, post_process_fn=None):
     contract_text = payload.get("text", "")
 
     async def event_generator():
@@ -138,7 +138,7 @@ def make_stream_response(system_prompt: str, payload: dict, post_process_fn=None
         def on_complete(result: dict):
             if post_process_fn:
                 try:
-                    post_process_fn(payload, result)
+                    post_process_fn(payload, result, current_user)
                 except Exception as e:
                     print(f"[stream post_process error]: {e}")
             loop.call_soon_threadsafe(queue.put_nowait, {"type": "complete", "data": result})
@@ -176,19 +176,19 @@ def make_stream_response(system_prompt: str, payload: dict, post_process_fn=None
     )
 
 @app.post("/extract/stream")
-async def extract_stream(payload: dict):
-    return make_stream_response(EXTRACT_SYSTEM_PROMPT, payload, save_extraction_supabase)
+async def extract_stream(payload: dict, current_user: dict = Depends(get_current_user)):
+    return make_stream_response(EXTRACT_SYSTEM_PROMPT, payload, current_user, save_extraction_supabase)
 
 @app.post("/obligations/stream")
-async def obligations_stream(payload: dict):
-    return make_stream_response(OBLIGATIONS_SYSTEM_PROMPT, payload, save_obligations_supabase)
+async def obligations_stream(payload: dict, current_user: dict = Depends(get_current_user)):
+    return make_stream_response(OBLIGATIONS_SYSTEM_PROMPT, payload, current_user, save_obligations_supabase)
 
 @app.post("/summary/stream")
-async def summary_stream(payload: dict):
-    return make_stream_response(SUMMARY_SYSTEM_PROMPT, payload)
+async def summary_stream(payload: dict, current_user: dict = Depends(get_current_user)):
+    return make_stream_response(SUMMARY_SYSTEM_PROMPT, payload, current_user)
 
 @app.post("/config/key")
-def update_api_key(data: ApiKeyUpdate):
+def update_api_key(data: ApiKeyUpdate, current_user: dict = Depends(get_current_user)):
     success = gemini_client.set_api_key(data.api_key)
     return {
         "status": "success" if success else "error",
