@@ -196,7 +196,7 @@ export default function UploadZone() {
       ]);
 
       store.setSummary(summaryRes);
-      store.setAlerts(alertsRes.alerts || alertsRes);
+      store.setAlerts(alertsRes);
 
       // All done — unlock the UI
       setIsProcessing(false);

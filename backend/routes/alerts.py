@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -19,15 +20,30 @@ class AlertsRequest(BaseModel):
     text: Optional[str] = None
     obligations: Optional[List[Dict[str, Any]]] = None
 
-@router.post("/alerts")
 @router.get("/alerts")
 async def get_alerts(
     today: Optional[str] = Query(None, description="Current date in YYYY-MM-DD format"),
     text: Optional[str] = Query(None)
 ):
     """
-    Compute proactive alerts for obligations/deadlines within 7, 14, or 30 days from reference date.
+    GET variant kept for backwards compatibility — reads contract text from the `text` query param.
     """
+    return compute_alert_response(AlertsRequest(text=text), today)
+
+@router.post("/alerts")
+async def post_alerts(
+    req: AlertsRequest,
+    today: Optional[str] = Query(None, description="Current date in YYYY-MM-DD format"),
+):
+    """
+    Compute proactive alerts for obligations/deadlines within 7, 14, or 30 days from reference date.
+
+    Contract text is read from the JSON request body (AlertsRequest.text), falling back to
+    AlertsRequest.obligations when text is not provided.
+    """
+    return compute_alert_response(req, today)
+
+def compute_alert_response(req: AlertsRequest, today: Optional[str]):
     try:
         current_date = datetime.strptime(today, "%Y-%m-%d").date() if today else date.today()
     except Exception:
@@ -35,14 +51,17 @@ async def get_alerts(
 
     today_str = current_date.strftime("%Y-%m-%d")
 
-    # If text is provided, ask Gemini or fallback
+    contract_text = req.text
+    if not contract_text and req.obligations:
+        contract_text = json.dumps(req.obligations, default=str)
+
     system_prompt = (
         f"You are a contract alerts engine. Given reference date {today_str}, identify all obligations "
         "or deadlines due within 7 days, 14 days, or 30 days. "
         "Return ONLY raw JSON: { alerts: [{obligation, deadline, days_remaining, urgency: 'Critical|High|Medium|Low', party, source_clause}] }."
     )
-    
-    result = call_gemini(system_prompt, text or "Standard contract terms", ref_date_str=today_str)
+
+    result = call_gemini(system_prompt, contract_text or "Standard contract terms", ref_date_str=today_str)
     alerts_raw = result.get("alerts", [])
 
     categorized_alerts = []
