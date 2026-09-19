@@ -1,12 +1,50 @@
 import io
-import uuid
 from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
 from pydantic import BaseModel
 import pymupdf as fitz
-from services.supabase_client import supabase
+from services.supabase_client import data_client
 from services.security import get_current_user
 
 router = APIRouter()
+
+def persist_contract(client, current_user: dict, name: str, text: str):
+    """Insert the contract row scoped to the verified user and return its DB id.
+
+    Never falls back to a client-supplied/random id: persistence must succeed
+    for the upload to be reported as successful. Errors surface so a failed
+    database insert is never presented as persisted data.
+    """
+    if client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Contract persistence unavailable: Supabase is not configured on the backend.",
+        )
+    try:
+        insert_res = client.table("contracts").insert({
+            "name": name,
+            "raw_text": text,
+            "status": "active",
+            "user_id": current_user["sub"],
+        }).execute()
+    except Exception as e:
+        print(f"[upload.py] Supabase save error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to persist the contract in the database. "
+                "Apply migrations/002_contract_persistence.sql and ensure any "
+                "enabled RLS policies allow authenticated users to insert rows."
+            ),
+        )
+
+    inserted = insert_res.data if insert_res else None
+    contract_id = inserted[0].get("id") if inserted else None
+    if not contract_id:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to persist the contract: the database returned no record.",
+        )
+    return contract_id
 
 class DirectTextInput(BaseModel):
     filename: str = "contract.txt"
@@ -51,22 +89,8 @@ async def upload_file(
     extracted_text = extracted_text.strip()
     words = len(extracted_text.split()) if extracted_text else 0
 
-    contract_id = None
-    if supabase:
-        try:
-            insert_res = supabase.table("contracts").insert({
-                "name": filename,
-                "raw_text": extracted_text,
-                "status": "active",
-                "user_id": current_user["sub"],
-            }).execute()
-            if insert_res.data and len(insert_res.data) > 0:
-                contract_id = insert_res.data[0].get("id")
-        except Exception as e:
-            print(f"[upload.py] Supabase save error: {e}")
-
-    if not contract_id:
-        contract_id = str(uuid.uuid4())
+    client = data_client(current_user)
+    contract_id = persist_contract(client, current_user, filename, extracted_text)
 
     return {
         "contract_id": contract_id,
@@ -86,22 +110,8 @@ async def upload_raw_text(
     text = data.text.strip()
     words = len(text.split()) if text else 0
 
-    contract_id = None
-    if supabase:
-        try:
-            insert_res = supabase.table("contracts").insert({
-                "name": data.filename,
-                "raw_text": text,
-                "status": "active",
-                "user_id": current_user["sub"],
-            }).execute()
-            if insert_res.data and len(insert_res.data) > 0:
-                contract_id = insert_res.data[0].get("id")
-        except Exception as e:
-            print(f"[upload.py] Supabase save error: {e}")
-
-    if not contract_id:
-        contract_id = str(uuid.uuid4())
+    client = data_client(current_user)
+    contract_id = persist_contract(client, current_user, data.filename, text)
 
     return {
         "contract_id": contract_id,

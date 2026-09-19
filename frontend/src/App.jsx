@@ -38,7 +38,7 @@ export default function App() {
   // Protected-route gate: wait for session restore, then require authentication.
   if (isAuthInitializing) {
     return (
-      <div className="min-h-screen bg-[#09090B] text-zinc-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F4F4F5] dark:bg-[#09090B] text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-indigo flex items-center justify-center text-white font-black text-sm shadow-md shadow-indigo-500/20 animate-pulse-subtle">
             CL

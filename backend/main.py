@@ -52,7 +52,7 @@ import json
 import threading
 from fastapi.responses import StreamingResponse
 from services.gemini_client import call_gemini_stream, PRIMARY_MODEL
-from services.supabase_client import supabase
+from services.supabase_client import data_client
 from routes.extract import SYSTEM_PROMPT as EXTRACT_SYSTEM_PROMPT, sanitize_date as sanitize_extract_date
 from routes.obligations import SYSTEM_PROMPT as OBLIGATIONS_SYSTEM_PROMPT, sanitize_date as sanitize_oblig_date
 from routes.summary import SYSTEM_PROMPT as SUMMARY_SYSTEM_PROMPT
@@ -84,7 +84,8 @@ async def debug_ai(current_user: dict = Depends(get_current_user)):
 
 def save_extraction_supabase(payload: dict, data: dict, current_user: dict):
     contract_id = payload.get("contract_id")
-    if supabase and contract_id and owns_contract(current_user, contract_id):
+    client = data_client(current_user)
+    if client and contract_id and owns_contract(current_user, contract_id):
         try:
             ext_payload = {
                 "contract_id": contract_id,
@@ -98,14 +99,15 @@ def save_extraction_supabase(payload: dict, data: dict, current_user: dict):
                 "source_sections": data.get("source_sections"),
                 "health_score": 78
             }
-            supabase.table("contract_extractions").insert(ext_payload).execute()
+            client.table("contract_extractions").insert(ext_payload).execute()
         except Exception as e:
             print(f"[extract/stream] Supabase save error: {e}")
 
 def save_obligations_supabase(payload: dict, data: dict, current_user: dict):
     contract_id = payload.get("contract_id")
     obligations_list = data.get("obligations", [])
-    if supabase and contract_id and obligations_list and owns_contract(current_user, contract_id):
+    client = data_client(current_user)
+    if client and contract_id and obligations_list and owns_contract(current_user, contract_id):
         try:
             records = []
             for ob in obligations_list:
@@ -121,7 +123,7 @@ def save_obligations_supabase(payload: dict, data: dict, current_user: dict):
                     "source_clause": str(ob.get("source_clause", "")),
                     "is_dismissed": False
                 })
-            supabase.table("obligations").insert(records).execute()
+            client.table("obligations").insert(records).execute()
         except Exception as e:
             print(f"[obligations/stream] Supabase save error: {e}")
 

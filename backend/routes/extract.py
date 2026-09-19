@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from services.gemini_client import call_gemini
-from services.supabase_client import supabase
+from services.supabase_client import data_client
 from services.security import get_current_user
 from services.ownership import owns_contract
 
@@ -41,7 +41,8 @@ async def extract_contract_fields(req: ExtractRequest, current_user: dict = Depe
     if "filename" not in data:
         data["filename"] = req.filename
 
-    if supabase and req.contract_id and owns_contract(current_user, req.contract_id):
+    client = data_client(current_user)
+    if client and req.contract_id and owns_contract(current_user, req.contract_id):
         try:
             ext_payload = {
                 "contract_id": req.contract_id,
@@ -55,7 +56,7 @@ async def extract_contract_fields(req: ExtractRequest, current_user: dict = Depe
                 "source_sections": data.get("source_sections"),
                 "health_score": 78
             }
-            supabase.table("contract_extractions").insert(ext_payload).execute()
+            client.table("contract_extractions").insert(ext_payload).execute()
         except Exception as e:
             print(f"[extract.py] Supabase save error: {e}")
 
