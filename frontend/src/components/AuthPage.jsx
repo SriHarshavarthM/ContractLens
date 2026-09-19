@@ -83,7 +83,7 @@ export default function AuthPage() {
 
   if (!supabase) {
     return (
-      <div className="min-h-screen bg-[#09090B] text-zinc-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F4F4F5] dark:bg-[#09090B] text-zinc-900 dark:text-zinc-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white dark:bg-[#141417] rounded-2xl border border-zinc-200 dark:border-[#27272A] p-8 text-center shadow-2xl">
           <div className="w-12 h-12 rounded-xl bg-brand-indigo flex items-center justify-center text-white font-black text-sm mx-auto mb-4">
             CL

@@ -45,3 +45,18 @@ def get_data_client(user: dict):
     except Exception as e:
         print(f"[supabase_client] Error creating user-bound client: {e}")
         return None
+
+
+def data_client(user: dict):
+    """Return the Supabase client to use for per-user data access.
+
+    Prefers a client bound to the verified user's access token so that RLS
+    policies keyed on auth.uid() resolve to the correct owner (and every
+    PostgREST request is attributed to the authenticated user rather than the
+    anonymous role). Falls back to the shared anon-key client only when a
+    user-bound client cannot be created (e.g. missing token).
+    """
+    client = get_data_client(user)
+    if client is not None:
+        return client
+    return supabase

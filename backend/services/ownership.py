@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from services.supabase_client import supabase
+from services.supabase_client import data_client
 
 
 def owns_contract(user: dict, contract_id) -> bool:
@@ -11,11 +11,12 @@ def owns_contract(user: dict, contract_id) -> bool:
     """
     if not user or not user.get("sub") or not contract_id:
         return False
-    if not supabase:
+    client = data_client(user)
+    if client is None:
         return False
     try:
         res = (
-            supabase.table("contracts")
+            client.table("contracts")
             .select("id")
             .eq("id", contract_id)
             .eq("user_id", user["sub"])

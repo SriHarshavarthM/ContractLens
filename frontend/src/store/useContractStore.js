@@ -56,6 +56,14 @@ export const useContractStore = create((set, get) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
   setKeyModalOpen: (open) => set({ isKeyModalOpen: open }),
   setAuthModal: (open, mode = 'login') => set({ isAuthModalOpen: open, authModalMode: mode }),
+  // Toggle light/dark theme: persists the choice and applies the `dark` class
+  // to <html> so Tailwind's `dark:` variants (darkMode: 'class') take effect.
+  toggleTheme: () => {
+    const next = get().theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.classList.toggle('dark', next === 'dark');
+    localStorage.setItem('cl_theme', next);
+    set({ theme: next });
+  },
 
   // ---------- Supabase Authentication ----------
 

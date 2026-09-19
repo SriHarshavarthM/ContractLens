@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from services.gemini_client import call_gemini
-from services.supabase_client import supabase
+from services.supabase_client import data_client
 from services.security import get_current_user
 from services.ownership import owns_contract
 
@@ -36,7 +36,8 @@ async def get_obligations(req: ObligationsRequest, current_user: dict = Depends(
     result = call_gemini(SYSTEM_PROMPT, req.text)
     obligations_list = result.get("obligations", [])
 
-    if supabase and req.contract_id and owns_contract(current_user, req.contract_id):
+    client = data_client(current_user)
+    if client and req.contract_id and owns_contract(current_user, req.contract_id):
         try:
             records = []
             for ob in obligations_list:
@@ -52,7 +53,7 @@ async def get_obligations(req: ObligationsRequest, current_user: dict = Depends(
                     "source_clause": str(ob.get("source_clause", "")),
                     "is_dismissed": False
                 })
-            supabase.table("obligations").insert(records).execute()
+            client.table("obligations").insert(records).execute()
         except Exception as e:
             print(f"[obligations.py] Supabase save error: {e}")
 

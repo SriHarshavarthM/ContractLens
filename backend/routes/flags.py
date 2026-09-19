@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from services.gemini_client import call_gemini
-from services.supabase_client import supabase
+from services.supabase_client import data_client
 from services.security import get_current_user
 from services.ownership import owns_contract
 
@@ -27,7 +27,8 @@ async def get_flags(req: FlagsRequest, current_user: dict = Depends(get_current_
     result = call_gemini(SYSTEM_PROMPT, req.text)
     flags_list = result.get("flags", [])
 
-    if supabase and req.contract_id and owns_contract(current_user, req.contract_id):
+    client = data_client(current_user)
+    if client and req.contract_id and owns_contract(current_user, req.contract_id):
         try:
             records = []
             for fl in flags_list:
@@ -42,7 +43,7 @@ async def get_flags(req: FlagsRequest, current_user: dict = Depends(get_current_
                     "section_reference": str(fl.get("section_reference", "")),
                     "is_reviewed": False
                 })
-            supabase.table("flags").insert(records).execute()
+            client.table("flags").insert(records).execute()
         except Exception as e:
             print(f"[flags.py] Supabase save error: {e}")
 
