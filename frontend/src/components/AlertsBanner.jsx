@@ -30,7 +30,7 @@ export default function AlertsBanner() {
   const topAlert = alertItems[0];
 
   return (
-    <div className="bg-gradient-to-r from-navy-950 via-navy-900 to-navy-950 border-b border-amber-500/30 px-4 py-2.5 relative z-50 text-xs text-slate-200">
+    <div className="bg-amber-50 dark:bg-[#14120B] border-b border-amber-200 dark:border-amber-900/60 px-4 py-2.5 relative z-50 text-xs text-zinc-800 dark:text-zinc-200">
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         {/* Left message with flashing indicator */}
         <div className="flex items-center gap-3 flex-wrap">

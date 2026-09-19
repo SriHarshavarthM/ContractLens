@@ -29,7 +29,7 @@ export const useContractStore = create((set, get) => ({
   qaHistory: [], // [{ id, question, answer, confidence, source_section, source_text, timestamp }]
 
   // Settings & Configuration
-  theme: localStorage.getItem('cl_theme') || 'light',
+  theme: localStorage.getItem('cl_theme') || 'dark',
   apiKeyConfigured: true,
   isKeyModalOpen: false,
 
@@ -192,107 +192,109 @@ export const useContractStore = create((set, get) => ({
     return Math.max(0, Math.min(100, calculated));
   },
 
-  // Full AI Analysis Pipeline triggered after document upload/load
+  // Full AI Analysis Pipeline triggered after document upload/load (Progressive 2-Batch Loading)
   analyzeContract: async (contractObj, autoNavigate = true) => {
     const today = new Date().toISOString().split('T')[0];
-    set({ isAnalyzing: true, analysisStep: 'Extracting key legal fields...' });
+    set({ isAnalyzing: true, analysisStep: 'Analyzing terms, obligations & risk clauses...' });
 
     try {
-      // 1. Call /extract
-      const extractRes = await fetch(`${API_BASE}/extract`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: contractObj.text,
-          filename: contractObj.filename || 'contract.pdf',
-          ref_date: today,
+      // Batch 1 (Parallel): Core extraction, obligations, and risk flags
+      const [extractRes, obRes, flagRes] = await Promise.all([
+        fetch(`${API_BASE}/extract`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: contractObj.text,
+            filename: contractObj.filename || 'contract.pdf',
+            ref_date: today,
+          }),
         }),
-      });
+        fetch(`${API_BASE}/obligations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: contractObj.text, ref_date: today }),
+        }),
+        fetch(`${API_BASE}/flags`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: contractObj.text, ref_date: today }),
+        })
+      ]);
+
       const extractedData = await extractRes.json();
-
-      set({ analysisStep: 'Analyzing party obligations & urgency...' });
-      // 2. Call /obligations
-      const obRes = await fetch(`${API_BASE}/obligations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: contractObj.text, ref_date: today }),
-      });
       const obData = await obRes.json();
-      const obligations = obData.obligations || [];
-
-      set({ analysisStep: 'Building chronological timeline...' });
-      // 3. Call /timeline
-      const tlRes = await fetch(`${API_BASE}/timeline`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: contractObj.text, ref_date: today }),
-      });
-      const tlData = await tlRes.json();
-      const timeline = tlData.timeline || [];
-
-      set({ analysisStep: 'Evaluating clause risks & ambiguities...' });
-      // 4. Call /flags
-      const flagRes = await fetch(`${API_BASE}/flags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: contractObj.text, ref_date: today }),
-      });
       const flagData = await flagRes.json();
+
+      const obligations = obData.obligations || [];
       const flags = flagData.flags || [];
 
-      set({ analysisStep: 'Generating executive business summary...' });
-      // 5. Call /summary
-      const sumRes = await fetch(`${API_BASE}/summary`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: contractObj.text, ref_date: today }),
-      });
-      const summary = await sumRes.json();
-
-      set({ analysisStep: 'Calculating deadline proximity alerts...' });
-      // 6. Call /alerts?today=YYYY-MM-DD
-      const alertRes = await fetch(`${API_BASE}/alerts?today=${today}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: contractObj.text }),
-      });
-      const alerts = await alertRes.json();
-
-      const enrichedContract = {
+      // Immediately unblock user and show Overview
+      const initialEnriched = {
         ...contractObj,
         extractedData,
         obligations,
-        timeline,
         flags,
-        summary,
-        alerts,
+        timeline: [],
+        summary: null,
+        alerts: null,
         analyzedAt: new Date().toISOString(),
       };
 
-      // Update state & contract list
       const existing = get().contracts.filter((c) => c.id !== contractObj.id);
-      const updatedContracts = [enrichedContract, ...existing];
-
       set({
-        contracts: updatedContracts,
-        activeContractId: enrichedContract.id,
-        contractA: enrichedContract, // default A slot for compare
+        contracts: [initialEnriched, ...existing],
+        activeContractId: initialEnriched.id,
+        contractA: initialEnriched,
         extractedData,
         obligations,
-        timeline,
         flags,
-        summary,
-        alerts,
-        isAnalyzing: false,
-        analysisStep: '',
+        isAnalyzing: false, // unblock modal immediately
         activeTab: autoNavigate ? 'overview' : get().activeTab,
       });
 
-      return enrichedContract;
+      // Batch 2 (Background): Timeline, Executive Summary, Proactive Alerts
+      Promise.all([
+        fetch(`${API_BASE}/timeline`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: contractObj.text, ref_date: today }),
+        }).then(r => r.json()),
+        fetch(`${API_BASE}/summary`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: contractObj.text, ref_date: today }),
+        }).then(r => r.json()),
+        fetch(`${API_BASE}/alerts?today=${today}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: contractObj.text }),
+        }).then(r => r.json()),
+      ]).then(([tlData, summary, alerts]) => {
+        const timeline = tlData.timeline || [];
+        const fullyEnriched = {
+          ...initialEnriched,
+          timeline,
+          summary,
+          alerts,
+        };
+        const updatedContracts = get().contracts.map((c) =>
+          c.id === initialEnriched.id ? fullyEnriched : c
+        );
+        set({
+          contracts: updatedContracts,
+          timeline,
+          summary,
+          alerts,
+        });
+      }).catch(err => {
+        console.warn('Batch 2 background processing note:', err);
+      });
+
+      return { success: true };
     } catch (err) {
-      console.error('Analysis pipeline error:', err);
+      console.error('Error analyzing contract:', err);
       set({ isAnalyzing: false, analysisStep: '' });
-      throw err;
+      return { success: false, error: err.message };
     }
   },
 

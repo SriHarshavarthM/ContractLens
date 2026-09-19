@@ -149,19 +149,19 @@ export default function UploadZone() {
   return (
     <div className="max-w-4xl mx-auto py-8 lg:py-12 flex flex-col items-center">
       {/* Hero Badge & Heading */}
-      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold mb-6 animate-pulse-subtle">
-        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-        <span>Enterprise Contract Intelligence & Risk Auditing</span>
+      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 text-brand-indigo dark:text-indigo-300 text-xs font-semibold mb-6 animate-pulse-subtle">
+        <Sparkles className="w-3.5 h-3.5 text-brand-indigo" />
+        <span>Enterprise Contract Intelligence &amp; Risk Auditing</span>
       </div>
 
-      <h1 className="text-3xl lg:text-5xl font-extrabold text-center tracking-tight text-white mb-4">
-        Review Contracts & Track Obligations{' '}
-        <span className="bg-gradient-to-r from-brand-indigo via-cyan-400 to-indigo-300 bg-clip-text text-transparent">
+      <h1 className="text-3xl lg:text-5xl font-extrabold text-center tracking-tight text-zinc-900 dark:text-white mb-4">
+        Review Contracts &amp; Track Obligations{' '}
+        <span className="bg-gradient-to-r from-brand-indigo via-cyan-500 to-indigo-400 bg-clip-text text-transparent">
           in Seconds
         </span>
       </h1>
 
-      <p className="text-slate-400 text-center max-w-2xl text-sm lg:text-base mb-10 leading-relaxed">
+      <p className="text-zinc-600 dark:text-zinc-400 text-center max-w-2xl text-sm lg:text-base mb-10 leading-relaxed">
         Upload any enterprise contract or MSA. ContractLens instantly extracts key business terms, maps chronological deadline timelines, isolates party commitments, flags high-risk clauses, and prepares executive summaries.
       </p>
 
@@ -239,8 +239,8 @@ export default function UploadZone() {
       </div>
 
       {/* Quick Sample Contracts Section */}
-      <div className="w-full max-w-2xl mt-8 pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col items-center">
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold mb-4">
+      <div className="w-full max-w-2xl mt-8 pt-8 border-t border-zinc-200 dark:border-[#27272A] flex flex-col items-center">
+        <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-semibold mb-4">
           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
           <span>Quick Load Verified Contract Datasets</span>
         </div>
@@ -248,42 +248,42 @@ export default function UploadZone() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
           <button
             onClick={() => loadSampleContract(1)}
-            className="bg-white dark:bg-[#13192B] border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-600/50 p-4 rounded-xl flex items-center justify-between text-left group shadow-sm transition-all"
+            className="bg-white dark:bg-[#121215] border border-zinc-200 dark:border-[#27272A] hover:border-brand-indigo dark:hover:border-indigo-500/60 p-4 rounded-xl flex items-center justify-between text-left group shadow-sm transition-all"
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 flex items-center justify-center text-brand-indigo">
+              <div className="w-9 h-9 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-brand-indigo">
                 <FileCheck className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-brand-indigo transition-colors">
+                <div className="text-xs font-bold text-zinc-900 dark:text-white group-hover:text-brand-indigo transition-colors">
                   Load Master Agreement (v1.0)
                 </div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   Enterprise SaaS Agreement with SLA &amp; 30-day alerts
                 </div>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-brand-indigo group-hover:translate-x-1 transition-all" />
+            <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-brand-indigo group-hover:translate-x-1 transition-all" />
           </button>
 
           <button
             onClick={loadBothForComparison}
-            className="bg-white dark:bg-[#13192B] border border-slate-200 dark:border-slate-800 hover:border-cyan-300 dark:hover:border-cyan-600/50 p-4 rounded-xl flex items-center justify-between text-left group shadow-sm transition-all"
+            className="bg-white dark:bg-[#121215] border border-zinc-200 dark:border-[#27272A] hover:border-cyan-500 dark:hover:border-cyan-500/60 p-4 rounded-xl flex items-center justify-between text-left group shadow-sm transition-all"
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+              <div className="w-9 h-9 rounded-lg bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
                 <Layers className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition-colors">
+                <div className="text-xs font-bold text-zinc-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition-colors">
                   Load v1 vs v2 (Compare Diff)
                 </div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   Side-by-side diff with marked changes &amp; risk analysis
                 </div>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-cyan-500 group-hover:translate-x-1 transition-all" />
+            <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-cyan-500 group-hover:translate-x-1 transition-all" />
           </button>
         </div>
       </div>

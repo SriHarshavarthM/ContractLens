@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script>
-      // Initialize theme on initial load
-      const savedTheme = localStorage.getItem('cl_theme') || 'light';
+      // Initialize theme on initial load (defaults to pure dark obsidian)
+      const savedTheme = localStorage.getItem('cl_theme') || 'dark';
       if (savedTheme === 'dark') {
         document.documentElement.classList.add('dark');
       } else {
@@ -19,7 +19,7 @@
       }
     </script>
   </head>
-  <body class="bg-[#F1F3F7] dark:bg-[#080C16] text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-brand-indigo selection:text-white transition-colors duration-200">
+  <body class="bg-[#F4F4F5] dark:bg-[#09090B] text-zinc-900 dark:text-zinc-100 font-sans antialiased selection:bg-brand-indigo selection:text-white transition-colors duration-150">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -10,21 +10,23 @@ import {
   Info,
   Sparkles,
   Filter,
-  CheckCircle2
+  CheckCircle2,
+  Clock,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function ObligationsPanel() {
-  const { obligations } = useContractStore();
+  const { obligations, extractedData } = useContractStore();
   const [filterParty, setFilterParty] = useState('ALL');
   const [filterUrgency, setFilterUrgency] = useState('ALL');
   const [expandedSources, setExpandedSources] = useState({});
 
   if (!obligations || obligations.length === 0) {
     return (
-      <div className="glass-panel p-12 rounded-2xl text-center">
-        <ListTodo className="w-10 h-10 text-slate-500 mx-auto mb-3" />
-        <h3 className="text-base font-bold text-white mb-1">No Obligations Found</h3>
-        <p className="text-xs text-slate-400">Upload an agreement to extract party commitments.</p>
+      <div className="bg-white dark:bg-[#121215] border border-zinc-200 dark:border-[#27272A] p-12 rounded-2xl text-center shadow-sm">
+        <ListTodo className="w-12 h-12 text-zinc-400 dark:text-zinc-500 mx-auto mb-3" />
+        <h3 className="text-base font-bold text-zinc-900 dark:text-white mb-1">No Obligations Found</h3>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">Upload an agreement to automatically extract party commitments and SLAs.</p>
       </div>
     );
   }
@@ -37,44 +39,43 @@ export default function ObligationsPanel() {
     const u = (urgency || 'medium').toLowerCase();
     if (u === 'critical') {
       return {
-        style: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-        dot: 'bg-rose-400 animate-pulse',
-        label: 'Critical (< 7 Days / Legal Consequence)'
+        style: 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800',
+        dot: 'bg-rose-500 animate-pulse',
+        label: 'Critical'
       };
     }
     if (u === 'high') {
       return {
-        style: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-        dot: 'bg-amber-400',
-        label: 'High (< 30 Days / Financial Penalty)'
+        style: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+        dot: 'bg-amber-500',
+        label: 'High'
       };
     }
     if (u === 'medium') {
       return {
-        style: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30',
-        dot: 'bg-yellow-400',
-        label: 'Medium (Standard Delivery)'
+        style: 'bg-yellow-50 dark:bg-yellow-950/40 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800',
+        dot: 'bg-yellow-500',
+        label: 'Medium'
       };
     }
     return {
-      style: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-      dot: 'bg-emerald-400',
-      label: 'Low (Informational)'
+      style: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
+      dot: 'bg-emerald-500',
+      label: 'Routine'
     };
   };
 
-  // Group obligations by party
-  const partyList = Array.from(new Set(obligations.map((o) => o.party || 'Unspecified')));
+  const partyList = Array.from(new Set(obligations.map((o) => o.party || 'Unassigned')));
 
-  const filteredObligations = obligations.filter((o) => {
-    if (filterParty !== 'ALL' && o.party !== filterParty) return false;
-    if (filterUrgency !== 'ALL' && (o.urgency || '').toLowerCase() !== filterUrgency.toLowerCase()) return false;
-    return true;
+  const filtered = obligations.filter((ob) => {
+    const matchParty = filterParty === 'ALL' || ob.party === filterParty;
+    const matchUrgency =
+      filterUrgency === 'ALL' || (ob.urgency || '').toLowerCase() === filterUrgency.toLowerCase();
+    return matchParty && matchUrgency;
   });
 
-  // Group filtered by party
-  const grouped = filteredObligations.reduce((acc, ob) => {
-    const p = ob.party || 'General Agreement';
+  const grouped = filtered.reduce((acc, ob) => {
+    const p = ob.party || 'General Requirements';
     if (!acc[p]) acc[p] = [];
     acc[p].push(ob);
     return acc;
@@ -83,47 +84,47 @@ export default function ObligationsPanel() {
   return (
     <div className="space-y-6">
       {/* Header and Filtering Bar */}
-      <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-white/10">
+      <div className="bg-white dark:bg-[#121215] p-5 sm:p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-zinc-200 dark:border-[#27272A] shadow-sm">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-brand-indigo/20 text-indigo-300 border border-indigo-500/30">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-brand-indigo dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
               Obligations Extracted ({obligations.length})
             </span>
           </div>
-          <h2 className="text-xl font-bold text-white">Party Commitments & Deliverables</h2>
-          <p className="text-xs text-slate-400">
-            Categorized by contracting entity with urgency ratings and clause references.
+          <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Party Commitments &amp; SLAs</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Categorized by contracting entity with urgency ratings and verbatim clause citations.
           </p>
         </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-navy-900 border border-white/10 text-xs">
-            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] text-xs">
+            <Building2 className="w-3.5 h-3.5 text-zinc-400" />
             <select
               value={filterParty}
               onChange={(e) => setFilterParty(e.target.value)}
-              className="bg-transparent text-slate-200 focus:outline-none cursor-pointer"
+              className="bg-transparent text-zinc-800 dark:text-zinc-200 focus:outline-none cursor-pointer"
             >
-              <option value="ALL" className="bg-navy-900">All Parties</option>
+              <option value="ALL" className="dark:bg-[#18181B]">All Parties</option>
               {partyList.map((p) => (
-                <option key={p} value={p} className="bg-navy-900">{p}</option>
+                <option key={p} value={p} className="dark:bg-[#18181B]">{p}</option>
               ))}
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-navy-900 border border-white/10 text-xs">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] text-xs">
+            <Filter className="w-3.5 h-3.5 text-zinc-400" />
             <select
               value={filterUrgency}
               onChange={(e) => setFilterUrgency(e.target.value)}
-              className="bg-transparent text-slate-200 focus:outline-none cursor-pointer"
+              className="bg-transparent text-zinc-800 dark:text-zinc-200 focus:outline-none cursor-pointer"
             >
-              <option value="ALL" className="bg-navy-900">All Urgencies</option>
-              <option value="critical" className="bg-navy-900">Critical</option>
-              <option value="high" className="bg-navy-900">High</option>
-              <option value="medium" className="bg-navy-900">Medium</option>
-              <option value="low" className="bg-navy-900">Low</option>
+              <option value="ALL" className="dark:bg-[#18181B]">All Urgencies</option>
+              <option value="critical" className="dark:bg-[#18181B]">Critical</option>
+              <option value="high" className="dark:bg-[#18181B]">High</option>
+              <option value="medium" className="dark:bg-[#18181B]">Medium</option>
+              <option value="low" className="dark:bg-[#18181B]">Routine</option>
             </select>
           </div>
         </div>
@@ -133,9 +134,9 @@ export default function ObligationsPanel() {
       <div className="space-y-6">
         {Object.entries(grouped).map(([partyName, items]) => (
           <div key={partyName} className="space-y-3">
-            <div className="flex items-center gap-2.5 px-2">
+            <div className="flex items-center gap-2 px-1">
               <div className="w-2.5 h-2.5 rounded-full bg-brand-indigo" />
-              <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
+              <h3 className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
                 {partyName} ({items.length})
               </h3>
             </div>
@@ -149,47 +150,64 @@ export default function ObligationsPanel() {
                 return (
                   <div
                     key={uniqueKey}
-                    className="glass-card p-5 rounded-xl border border-white/10 hover:border-white/20 transition-all space-y-3"
+                    className="bg-white dark:bg-[#121215] p-5 rounded-2xl border border-zinc-200 dark:border-[#27272A] hover:border-zinc-300 dark:hover:border-zinc-700 transition-all space-y-3 shadow-sm"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5">
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${badge.style}`}
                         >
-                          <span className={`w-2 h-2 rounded-full ${badge.dot}`} />
+                          <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
                           <span>{ob.urgency || 'Medium'}</span>
                         </span>
 
-                        <div className="flex items-center gap-1.5 text-xs text-slate-300 font-mono">
-                          <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>Due: <strong className="text-white">{ob.deadline || 'Ongoing'}</strong></span>
-                        </div>
+                        <span className="text-xs font-bold text-zinc-900 dark:text-white">
+                          {ob.type || 'Operational Deliverable'}
+                        </span>
                       </div>
 
-                      <span className="text-[11px] text-slate-400 font-mono">
-                        {ob.source_clause || 'Section Reference'}
-                      </span>
+                      {/* Deadline Tag */}
+                      {ob.deadline && (
+                        <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                          <Calendar className="w-3.5 h-3.5 text-brand-indigo" />
+                          <span>Deadline: {ob.deadline}</span>
+                        </div>
+                      )}
                     </div>
 
-                    <p className="text-sm text-slate-100 font-medium leading-relaxed">
+                    {/* Description */}
+                    <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed font-normal">
                       {ob.description}
                     </p>
 
-                    {/* Collapsible Source clause */}
+                    {/* Penalty Notice */}
+                    {ob.penalty && (
+                      <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="font-bold">Penalty / Breach Risk: </strong>
+                          <span>{ob.penalty}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Collapsible Verbatim Source Clause */}
                     {ob.source_clause && (
-                      <div className="pt-2 border-t border-white/5">
+                      <div className="pt-2 border-t border-zinc-100 dark:border-[#27272A]">
                         <button
                           onClick={() => toggleSource(uniqueKey)}
-                          className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-indigo-300 transition-colors"
+                          className="flex items-center justify-between w-full text-xs text-indigo-600 dark:text-indigo-400 hover:opacity-80 transition-opacity"
                         >
-                          <Info className="w-3 h-3 text-indigo-400" />
-                          <span>{isExpanded ? 'Hide Source Clause' : 'View Source Clause Reference'}</span>
-                          {isExpanded ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                          <span className="flex items-center gap-1.5 font-semibold">
+                            <Info className="w-3.5 h-3.5" />
+                            {isExpanded ? 'Hide Verbatim Source Clause' : 'View Verbatim Source Clause & Citations'}
+                          </span>
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         </button>
 
                         {isExpanded && (
-                          <div className="mt-2 p-2.5 rounded-lg bg-navy-950/80 border border-indigo-500/20 text-[11px] text-slate-300 font-mono">
-                            {ob.source_clause}
+                          <div className="mt-2.5 p-3 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] text-xs text-zinc-600 dark:text-zinc-300 font-mono leading-relaxed">
+                            "{ob.source_clause}"
                           </div>
                         )}
                       </div>
@@ -200,17 +218,6 @@ export default function ObligationsPanel() {
             </div>
           </div>
         ))}
-
-        {Object.keys(grouped).length === 0 && (
-          <div className="glass-panel p-8 rounded-xl text-center text-slate-400 text-xs">
-            No obligations match the selected filters.
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center justify-end gap-1.5 text-[11px] text-slate-500 pr-2">
-        <Sparkles className="w-3 h-3 text-indigo-400" />
-        <span>Powered by Gemini 1.5 Pro</span>
       </div>
     </div>
   );

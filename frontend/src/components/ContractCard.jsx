@@ -43,7 +43,7 @@ export default function ContractCard() {
 
   if (!extractedData && !activeContract?.extractedData) {
     return (
-      <div className="bg-white dark:bg-[#13192B] rounded-2xl border border-slate-200 dark:border-slate-800 p-12 text-center shadow-sm">
+      <div className="bg-white dark:bg-[#121215] rounded-2xl border border-slate-200 dark:border-slate-800 p-12 text-center shadow-sm">
         <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
         <h3 className="text-base font-bold text-slate-800 dark:text-white mb-1">No Contract Analyzed</h3>
         <p className="text-xs text-slate-500 dark:text-slate-400">Please upload a document or select a contract from the top bar.</p>
@@ -96,7 +96,7 @@ export default function ContractCard() {
         <div className="lg:col-span-8 space-y-5">
           
           {/* CARD 1: Contract Duration */}
-          <div className="bg-white dark:bg-[#13192B] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-colors">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -163,7 +163,7 @@ export default function ContractCard() {
           </div>
 
           {/* CARD 2: Contract Position Details */}
-          <div className="bg-white dark:bg-[#13192B] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-colors">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -221,7 +221,7 @@ export default function ContractCard() {
           </div>
 
           {/* CARD 3: Compensation & Benefit */}
-          <div className="bg-white dark:bg-[#13192B] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-colors">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -266,7 +266,7 @@ export default function ContractCard() {
           </div>
 
           {/* CARD 4: Contract Clauses */}
-          <div className="bg-white dark:bg-[#13192B] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-colors">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -339,7 +339,7 @@ export default function ContractCard() {
         <div className="lg:col-span-4 space-y-5">
           
           {/* CARD 1: Working Scope */}
-          <div className="bg-white dark:bg-[#13192B] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-colors">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -364,7 +364,7 @@ export default function ContractCard() {
               {scopeItems.map((item, idx) => (
                 <div
                   key={idx}
-                  className="bg-white dark:bg-[#0E1322] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
+                  className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
                 >
                   {item}
                 </div>
@@ -373,7 +373,7 @@ export default function ContractCard() {
           </div>
 
           {/* CARD 2: Contract Details */}
-          <div className="bg-white dark:bg-[#13192B] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-[#121215] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-colors">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">

@@ -110,16 +110,16 @@ export default function CompareView() {
   return (
     <div className="space-y-6">
       {/* Header & Slot Selectors */}
-      <div className="glass-panel p-6 rounded-2xl border border-white/10 space-y-6">
+      <div className="bg-white dark:bg-[#121215] p-6 rounded-2xl border border-zinc-200 dark:border-[#27272A] shadow-sm space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-brand-indigo/20 text-indigo-300 border border-indigo-500/30">
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
                 AI Redline & Version Diff
               </span>
             </div>
-            <h2 className="text-xl font-bold text-white">Compare Two Contract Versions</h2>
-            <p className="text-xs text-slate-400">
+            <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Compare Two Contract Versions</h2>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Detects commercial concessions, altered liability thresholds, modified payment periods, and sneakily inserted clauses.
             </p>
           </div>
@@ -127,9 +127,9 @@ export default function CompareView() {
           <div className="flex items-center gap-2">
             <button
               onClick={loadSampleSlots}
-              className="px-3.5 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-semibold text-slate-200 border border-white/10 flex items-center gap-1.5 transition-colors"
+              className="px-3.5 py-1.5 rounded-xl bg-zinc-100 dark:bg-[#18181B] hover:bg-zinc-200 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-[#27272A] flex items-center gap-1.5 transition-colors"
             >
-              <Layers className="w-3.5 h-3.5 text-indigo-400" />
+              <Layers className="w-3.5 h-3.5 text-brand-indigo" />
               <span>Load Sample v1 vs v2</span>
             </button>
 
@@ -137,7 +137,7 @@ export default function CompareView() {
               <button
                 onClick={runComparison}
                 disabled={isComparing}
-                className="px-4 py-1.5 rounded-xl bg-brand-indigo hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/30 flex items-center gap-2 transition-all disabled:opacity-50"
+                className="px-4 py-1.5 rounded-xl bg-brand-indigo hover:bg-indigo-600 text-white text-xs font-semibold shadow-sm flex items-center gap-2 transition-all disabled:opacity-50"
               >
                 {isComparing ? (
                   <>
@@ -158,12 +158,12 @@ export default function CompareView() {
         {/* Dual Contract Slots */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Contract A Slot */}
-          <div className="glass-card p-4 rounded-xl border border-white/10">
+          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A]">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-brand-indigo">
                 Contract A (Baseline)
               </span>
-              <label className="cursor-pointer text-[11px] text-slate-400 hover:text-white flex items-center gap-1">
+              <label className="cursor-pointer text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white flex items-center gap-1">
                 <Upload className="w-3 h-3" />
                 <span>Upload file</span>
                 <input
@@ -176,31 +176,31 @@ export default function CompareView() {
             </div>
 
             {contractA ? (
-              <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-navy-950 border border-white/10">
-                <FileText className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+              <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-white dark:bg-[#141417] border border-zinc-200 dark:border-[#27272A]">
+                <FileText className="w-4 h-4 text-brand-indigo flex-shrink-0" />
                 <div className="truncate">
-                  <div className="text-xs font-semibold text-white truncate">
+                  <div className="text-xs font-semibold text-zinc-900 dark:text-white truncate">
                     {contractA.title || contractA.filename}
                   </div>
-                  <div className="text-[10px] text-slate-400">
+                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                     {contractA.text.split(/\s+/).length} words
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="p-4 rounded-lg bg-navy-950/50 border border-dashed border-white/10 text-center text-xs text-slate-400">
+              <div className="p-4 rounded-lg bg-white/50 dark:bg-[#141417]/50 border border-dashed border-zinc-300 dark:border-zinc-700 text-center text-xs text-zinc-500 dark:text-zinc-400">
                 Slot empty. Upload or load sample.
               </div>
             )}
           </div>
 
           {/* Contract B Slot */}
-          <div className="glass-card p-4 rounded-xl border border-white/10">
+          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A]">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
                 Contract B (Revision / Counter)
               </span>
-              <label className="cursor-pointer text-[11px] text-slate-400 hover:text-white flex items-center gap-1">
+              <label className="cursor-pointer text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white flex items-center gap-1">
                 <Upload className="w-3 h-3" />
                 <span>Upload file</span>
                 <input
@@ -213,19 +213,19 @@ export default function CompareView() {
             </div>
 
             {contractB ? (
-              <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-navy-950 border border-white/10">
-                <FileText className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+              <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-white dark:bg-[#141417] border border-zinc-200 dark:border-[#27272A]">
+                <FileText className="w-4 h-4 text-cyan-600 dark:text-cyan-400 flex-shrink-0" />
                 <div className="truncate">
-                  <div className="text-xs font-semibold text-white truncate">
+                  <div className="text-xs font-semibold text-zinc-900 dark:text-white truncate">
                     {contractB.title || contractB.filename}
                   </div>
-                  <div className="text-[10px] text-slate-400">
+                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                     {contractB.text.split(/\s+/).length} words
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="p-4 rounded-lg bg-navy-950/50 border border-dashed border-white/10 text-center text-xs text-slate-400">
+              <div className="p-4 rounded-lg bg-white/50 dark:bg-[#141417]/50 border border-dashed border-zinc-300 dark:border-zinc-700 text-center text-xs text-zinc-500 dark:text-zinc-400">
                 Slot empty. Upload or load sample.
               </div>
             )}
@@ -235,20 +235,20 @@ export default function CompareView() {
 
       {/* Comparison Results */}
       {isComparing && (
-        <div className="glass-panel p-12 rounded-2xl text-center">
-          <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin mx-auto mb-3" />
-          <h4 className="text-sm font-bold text-white mb-1">Comparing Contract Versions...</h4>
-          <p className="text-xs text-slate-400">Identifying modified provisions, added terms, and omitted protections.</p>
+        <div className="bg-white dark:bg-[#121215] p-12 rounded-2xl text-center border border-zinc-200 dark:border-[#27272A]">
+          <RefreshCw className="w-8 h-8 text-brand-indigo animate-spin mx-auto mb-3" />
+          <h4 className="text-sm font-bold text-zinc-900 dark:text-white mb-1">Comparing Contract Versions...</h4>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Identifying modified provisions, added terms, and omitted protections.</p>
         </div>
       )}
 
       {!isComparing && compareDiff && (
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
               Identified Contractual Differences ({compareDiff.changes?.length || 0})
             </h3>
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
               Sorted by business significance
             </span>
           </div>
@@ -261,15 +261,15 @@ export default function CompareView() {
               return (
                 <div
                   key={idx}
-                  className={`glass-card p-6 rounded-2xl border ${style.card} space-y-4 transition-all`}
+                  className="bg-white dark:bg-[#121215] p-6 rounded-2xl border border-zinc-200 dark:border-[#27272A] space-y-4 transition-all shadow-sm"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-zinc-100 dark:border-[#27272A]">
                     <div className="flex items-center gap-2.5">
                       <Icon className={`w-4 h-4 ${style.iconColor}`} />
                       <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded-full border ${style.badge}`}>
                         {style.label}
                       </span>
-                      <span className="text-xs font-mono font-bold text-white">
+                      <span className="text-xs font-mono font-bold text-zinc-900 dark:text-white">
                         {change.section}
                       </span>
                     </div>
@@ -277,10 +277,10 @@ export default function CompareView() {
                     <span
                       className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border ${
                         change.significance === 'High'
-                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                          ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
                           : change.significance === 'Medium'
-                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                          : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                          ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                          : 'bg-indigo-50 dark:bg-indigo-950/60 text-brand-indigo border-indigo-200 dark:border-indigo-800'
                       }`}
                     >
                       {change.significance || 'Medium'} Impact
@@ -288,27 +288,27 @@ export default function CompareView() {
                   </div>
 
                   {/* Explanation of difference */}
-                  <p className="text-xs text-slate-200 font-medium leading-relaxed">
-                    <strong className="text-white">Business Impact: </strong>
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed">
+                    <strong className="text-zinc-900 dark:text-white">Business Impact: </strong>
                     {change.explanation}
                   </p>
 
                   {/* Side-by-side text difference */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                    <div className="p-3 rounded-xl bg-navy-950 border border-white/10">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 mb-1">
+                    <div className="p-3 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A]">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-brand-indigo mb-1">
                         Contract A (Original)
                       </div>
-                      <p className="text-xs font-mono text-slate-300 leading-relaxed">
+                      <p className="text-xs font-mono text-zinc-800 dark:text-zinc-300 leading-relaxed">
                         {change.contract_a_text}
                       </p>
                     </div>
 
-                    <div className="p-3 rounded-xl bg-navy-950 border border-white/10">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 mb-1">
+                    <div className="p-3 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A]">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 mb-1">
                         Contract B (Counter Revision)
                       </div>
-                      <p className="text-xs font-mono text-slate-300 leading-relaxed">
+                      <p className="text-xs font-mono text-zinc-800 dark:text-zinc-300 leading-relaxed">
                         {change.contract_b_text}
                       </p>
                     </div>
@@ -322,10 +322,10 @@ export default function CompareView() {
 
       {/* Empty State */}
       {!isComparing && !compareDiff && (
-        <div className="glass-panel p-12 rounded-2xl text-center">
-          <GitCompare className="w-10 h-10 text-slate-500 mx-auto mb-3" />
-          <h4 className="text-base font-bold text-white mb-1">Ready to Compare Agreements</h4>
-          <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
+        <div className="bg-white dark:bg-[#121215] p-12 rounded-2xl text-center border border-zinc-200 dark:border-[#27272A]">
+          <GitCompare className="w-10 h-10 text-zinc-400 dark:text-zinc-500 mx-auto mb-3" />
+          <h4 className="text-base font-bold text-zinc-900 dark:text-white mb-1">Ready to Compare Agreements</h4>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mx-auto mb-4">
             Upload two versions of an agreement or click &quot;Load Sample v1 vs v2&quot; to test the comparison engine.
           </p>
           <button

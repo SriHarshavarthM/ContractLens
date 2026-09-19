@@ -92,20 +92,20 @@ export default function AuthModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-[#13192B] rounded-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-fade-in">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-[#141417] rounded-2xl max-w-md w-full border border-zinc-200 dark:border-[#27272A] shadow-2xl overflow-hidden animate-fade-in">
         
         {/* Header with Title and Close Button */}
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="p-5 border-b border-zinc-100 dark:border-[#27272A] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-brand-indigo font-black text-sm">
               CL
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+              <h3 className="font-bold text-zinc-900 dark:text-white text-sm">
                 ContractLens Authentication
               </h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 Enterprise AI Contract Review &amp; Obligation Intelligence
               </p>
             </div>
@@ -113,7 +113,7 @@ export default function AuthModal() {
 
           <button
             onClick={() => setAuthModal(false)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -133,7 +133,7 @@ export default function AuthModal() {
               </span>
             </div>
 
-            <p className="text-[11px] text-slate-600 dark:text-slate-300 mb-3 leading-relaxed">
+            <p className="text-[11px] text-zinc-600 dark:text-zinc-300 mb-3 leading-relaxed">
               Use pre-configured demo account with lead counsel permissions and sample contracts:
             </p>
 
@@ -149,14 +149,14 @@ export default function AuthModal() {
           </div>
 
           {/* Mode Switcher Tabs (Sign In / Register) */}
-          <div className="flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-xs font-semibold">
+          <div className="flex p-1 rounded-xl bg-zinc-100 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] text-xs font-semibold">
             <button
               type="button"
               onClick={() => { setMode('login'); setErrorMsg(null); }}
               className={`flex-1 py-1.5 rounded-lg transition-all ${
                 mode === 'login'
-                  ? 'bg-white dark:bg-[#181E2E] text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  ? 'bg-white dark:bg-[#222226] text-zinc-900 dark:text-white shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
               }`}
             >
               Sign In
@@ -166,8 +166,8 @@ export default function AuthModal() {
               onClick={() => { setMode('register'); setErrorMsg(null); }}
               className={`flex-1 py-1.5 rounded-lg transition-all ${
                 mode === 'register'
-                  ? 'bg-white dark:bg-[#181E2E] text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  ? 'bg-white dark:bg-[#222226] text-zinc-900 dark:text-white shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
               }`}
             >
               Create Account
@@ -176,14 +176,14 @@ export default function AuthModal() {
 
           {/* Notifications */}
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
               <span>{successMsg}</span>
             </div>
@@ -193,70 +193,70 @@ export default function AuthModal() {
           <form onSubmit={handleSubmit} className="space-y-3">
             {mode === 'register' && (
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
                   Full Name
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <User className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Sarah Jenkins"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-indigo"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-indigo"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <Mail className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@company.com"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-indigo"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-indigo"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
                 Password
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-indigo"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-indigo"
                 />
               </div>
             </div>
 
             {mode === 'register' && (
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
                   Professional Role
                 </label>
                 <div className="relative">
-                  <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <Briefcase className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
                     placeholder="e.g. General Counsel / Legal Operations"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-indigo"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-indigo"
                   />
                 </div>
               </div>
@@ -265,9 +265,9 @@ export default function AuthModal() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-2.5 px-4 rounded-xl bg-[#181E2E] dark:bg-white text-white dark:text-slate-950 font-bold text-xs shadow hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+              className="w-full mt-2 py-2.5 px-4 rounded-xl bg-brand-indigo hover:bg-indigo-600 disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
             >
-              <span>{mode === 'login' ? 'Sign In to ContractLens' : 'Create & Access Account'}</span>
+              <span>{mode === 'login' ? 'Sign In to ContractLens' : 'Complete Registration'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </form>

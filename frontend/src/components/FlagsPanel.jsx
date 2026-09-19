@@ -102,21 +102,21 @@ ContractLens Review Team`
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-white/10">
+      <div className="p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white dark:bg-[#121215] border border-zinc-200 dark:border-[#27272A] shadow-sm">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
               {flags.length} Potential Risk Clauses Identified
             </span>
           </div>
-          <h2 className="text-xl font-bold text-white">Clause Risk & Ambiguity Audit</h2>
-          <p className="text-xs text-slate-400">
+          <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Clause Risk & Ambiguity Audit</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Unilateral obligations, disproportionate liability limits, and non-standard provisions flagged for human review.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <Info className="w-3.5 h-3.5 text-indigo-400" />
+        <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <Info className="w-3.5 h-3.5 text-brand-indigo" />
           <span>Click &quot;Copy for Legal Review&quot; to auto-generate attorney briefs</span>
         </div>
       </div>
@@ -130,19 +130,19 @@ ContractLens Review Team`
           return (
             <div
               key={idx}
-              className={`glass-card p-6 rounded-2xl border ${style.border} ${style.bg} transition-all space-y-4`}
+              className={`p-6 rounded-2xl border transition-all space-y-4 bg-white dark:bg-[#121215] ${style.border}`}
             >
               {/* Top Meta Line */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-xl bg-navy-950 border border-white/10 ${style.iconColor}`}>
+                  <div className={`p-2 rounded-xl bg-zinc-100 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] ${style.iconColor}`}>
                     <AlertTriangle className="w-4 h-4" />
                   </div>
                   <div>
                     <span className={`text-xs font-bold uppercase px-2.5 py-0.5 rounded-full border ${style.badge} mr-2`}>
                       {style.label}
                     </span>
-                    <span className="text-xs font-mono font-bold text-white">
+                    <span className="text-xs font-mono font-bold text-zinc-900 dark:text-white">
                       {flag.section_reference || `Section ${idx + 1}`}
                     </span>
                   </div>
@@ -152,17 +152,17 @@ ContractLens Review Team`
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleQuickCopyClause(flag, idx)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-900 border border-white/10 hover:border-white/20 text-slate-300 text-xs font-medium transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition-colors"
                     title="Copy exact clause text"
                   >
                     {copiedId === idx ? (
                       <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">Copied!</span>
+                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-emerald-600 dark:text-emerald-400">Copied!</span>
                       </>
                     ) : (
                       <>
-                        <Copy className="w-3.5 h-3.5 text-slate-400" />
+                        <Copy className="w-3.5 h-3.5 text-zinc-400" />
                         <span>Copy Clause</span>
                       </>
                     )}
@@ -170,7 +170,7 @@ ContractLens Review Team`
 
                   <button
                     onClick={() => setSelectedFlagForEmail(flag)}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-indigo hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-500/20 transition-all"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-indigo hover:bg-indigo-600 text-white text-xs font-semibold shadow-sm transition-all"
                   >
                     <Mail className="w-3.5 h-3.5" />
                     <span>Copy for Legal Review</span>
@@ -179,22 +179,22 @@ ContractLens Review Team`
               </div>
 
               {/* Exact Clause Excerpt */}
-              <div className="p-3.5 rounded-xl bg-navy-950/90 border border-white/10">
-                <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">
+              <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A]">
+                <div className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
                   Contract Excerpt
                 </div>
-                <p className="text-xs text-slate-200 font-mono italic leading-relaxed">
+                <p className="text-xs text-zinc-800 dark:text-zinc-200 font-mono italic leading-relaxed">
                   &quot;{flag.clause_text}&quot;
                 </p>
               </div>
 
               {/* AI Risk Analysis Reason */}
               <div>
-                <div className="text-[10px] uppercase font-bold tracking-wider text-amber-400 mb-1 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3 text-amber-400" />
+                <div className="text-[10px] uppercase font-bold tracking-wider text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
                   <span>Why This is Flagged</span>
                 </div>
-                <p className="text-sm text-slate-200 font-medium leading-relaxed">
+                <p className="text-sm text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed">
                   {flag.reason}
                 </p>
               </div>
@@ -205,18 +205,18 @@ ContractLens Review Team`
 
       {/* "Copy for Legal Review" Email Drafter Modal */}
       {selectedFlagForEmail && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel p-6 rounded-2xl max-w-2xl w-full border border-indigo-500/30 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#141417] p-6 rounded-2xl max-w-2xl w-full border border-zinc-200 dark:border-[#27272A] shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-[#27272A]">
               <div className="flex items-center gap-2">
                 <Mail className="w-5 h-5 text-brand-indigo" />
-                <h3 className="font-bold text-white text-base">
+                <h3 className="font-bold text-zinc-900 dark:text-white text-base">
                   Pre-drafted Legal Review Advisory Email
                 </h3>
               </div>
               <button
                 onClick={() => setSelectedFlagForEmail(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/5"
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -224,42 +224,42 @@ ContractLens Review Team`
 
             {/* Email Subject */}
             <div>
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
                 Subject Line
               </label>
-              <div className="p-2.5 rounded-lg bg-navy-950 border border-white/10 text-xs font-mono text-white font-medium">
+              <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] text-xs font-mono text-zinc-900 dark:text-white font-medium">
                 {generateEmailDraft(selectedFlagForEmail).subject}
               </div>
             </div>
 
             {/* Email Body */}
             <div>
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
                 Formatted Email Body
               </label>
               <textarea
                 readOnly
                 rows={11}
                 value={generateEmailDraft(selectedFlagForEmail).body}
-                className="w-full p-3 rounded-xl bg-navy-950 border border-white/10 text-xs font-mono text-slate-200 leading-relaxed focus:outline-none resize-none"
+                className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] text-xs font-mono text-zinc-800 dark:text-zinc-200 leading-relaxed focus:outline-none resize-none"
               />
             </div>
 
             {/* Modal Footer Buttons */}
             <div className="flex items-center justify-between pt-2">
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 Ready to paste directly into Outlook, Gmail, or Slack.
               </span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setSelectedFlagForEmail(null)}
-                  className="px-3 py-1.5 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-white/5"
+                  className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
                   Close
                 </button>
                 <button
                   onClick={() => handleCopyEmail(generateEmailDraft(selectedFlagForEmail))}
-                  className="px-4 py-2 bg-brand-indigo hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-indigo-500/30 flex items-center gap-2 transition-all"
+                  className="px-4 py-2 bg-brand-indigo hover:bg-indigo-600 text-white font-semibold text-xs rounded-xl shadow transition-all flex items-center gap-2"
                 >
                   {copiedEmail ? (
                     <>
@@ -279,8 +279,8 @@ ContractLens Review Team`
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-1.5 text-[11px] text-slate-500 pr-2">
-        <Sparkles className="w-3 h-3 text-indigo-400" />
+      <div className="flex items-center justify-end gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500 pr-2">
+        <Sparkles className="w-3 h-3 text-brand-indigo" />
         <span>Powered by Gemini 1.5 Pro</span>
       </div>
     </div>

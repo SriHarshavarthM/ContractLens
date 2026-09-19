@@ -8,13 +8,23 @@ export default {
   theme: {
     extend: {
       colors: {
+        // True Dark & Charcoal Theme (NO navy blue!)
+        dark: {
+          950: '#09090B', // Deepest background
+          900: '#121215', // Main surface
+          850: '#18181B', // Card surface
+          800: '#222226', // Elevated surface
+          750: '#27272A', // Subtle borders
+          700: '#3F3F46', // Strong borders
+        },
         navy: {
-          950: '#070A13',
-          900: '#0B0F19',
-          850: '#0F1629',
-          800: '#151D36',
-          750: '#1C2646',
-          700: '#233058',
+          // Remapped to pure charcoal/dark to override any legacy classes
+          950: '#09090B',
+          900: '#121215',
+          850: '#18181B',
+          800: '#222226',
+          750: '#27272A',
+          700: '#3F3F46',
         },
         brand: {
           indigo: '#6366F1',

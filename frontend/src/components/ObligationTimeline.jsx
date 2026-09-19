@@ -94,11 +94,11 @@ export default function ObligationTimeline() {
       </div>
 
       {/* Horizontal Flexbox Timeline View */}
-      <div className="glass-panel p-6 rounded-2xl border border-white/10 overflow-x-auto pb-8">
+      <div className="p-6 rounded-2xl bg-white dark:bg-[#121215] border border-zinc-200 dark:border-[#27272A] overflow-x-auto pb-8 shadow-sm">
         <div className="relative min-w-[760px] flex items-center justify-between pt-6 pb-2 px-6">
           {/* Continuous baseline connector track */}
-          <div className="absolute top-1/2 left-8 right-8 h-1 bg-navy-800 -translate-y-1/2 z-0">
-            <div className="h-full bg-gradient-to-r from-brand-indigo via-cyan-400 to-indigo-600 rounded-full opacity-60" />
+          <div className="absolute top-1/2 left-8 right-8 h-1 bg-zinc-200 dark:bg-[#27272A] -translate-y-1/2 z-0">
+            <div className="h-full bg-gradient-to-r from-brand-indigo via-cyan-400 to-indigo-600 rounded-full opacity-70" />
           </div>
 
           {/* Timeline Nodes */}
@@ -117,12 +117,12 @@ export default function ObligationTimeline() {
                 <div
                   className={`text-xs font-mono mb-3 px-2 py-0.5 rounded transition-all ${
                     isSelected
-                      ? 'bg-brand-indigo text-white font-bold scale-105 shadow-md shadow-indigo-500/30'
+                      ? 'bg-brand-indigo text-white font-bold scale-105 shadow-sm'
                       : item.isCritical
-                      ? 'text-rose-400 font-semibold'
+                      ? 'text-rose-600 dark:text-rose-400 font-semibold'
                       : item.isNearTerm
-                      ? 'text-amber-400 font-semibold'
-                      : 'text-slate-400 group-hover:text-slate-200'
+                      ? 'text-amber-600 dark:text-amber-400 font-semibold'
+                      : 'text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-800 dark:group-hover:text-zinc-200'
                   }`}
                 >
                   {item.date || 'TBD'}
@@ -133,7 +133,7 @@ export default function ObligationTimeline() {
                   {/* Pulsing indicator for deadlines within 30 days */}
                   {item.isNearTerm && (
                     <span
-                      className={`absolute w-12 h-12 rounded-full animate-ping opacity-40 ${
+                      className={`absolute w-12 h-12 rounded-full animate-ping opacity-30 ${
                         item.isCritical ? 'bg-rose-500' : 'bg-amber-500'
                       }`}
                     />
@@ -142,12 +142,12 @@ export default function ObligationTimeline() {
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
                       isSelected
-                        ? 'bg-brand-indigo text-white scale-125 shadow-xl shadow-indigo-500/50 ring-4 ring-indigo-500/30'
+                        ? 'bg-brand-indigo text-white scale-125 shadow-lg ring-4 ring-indigo-500/30'
                         : item.isCritical
-                        ? 'bg-rose-500/20 text-rose-300 border-2 border-rose-500'
+                        ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-2 border-rose-500'
                         : item.isNearTerm
-                        ? 'bg-amber-500/20 text-amber-300 border-2 border-amber-500'
-                        : 'bg-navy-900 text-indigo-400 border border-white/20 group-hover:border-indigo-400 group-hover:scale-110'
+                        ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-2 border-amber-500'
+                        : 'bg-zinc-100 dark:bg-[#18181B] text-brand-indigo border border-zinc-200 dark:border-[#27272A] group-hover:border-brand-indigo group-hover:scale-110'
                     }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -159,12 +159,12 @@ export default function ObligationTimeline() {
                   <p
                     className={`text-xs font-semibold line-clamp-2 transition-colors ${
                       isSelected
-                        ? 'text-white font-bold'
+                        ? 'text-zinc-900 dark:text-white font-bold'
                         : item.isCritical
-                        ? 'text-rose-300'
+                        ? 'text-rose-700 dark:text-rose-300'
                         : item.isNearTerm
-                        ? 'text-amber-300'
-                        : 'text-slate-300 group-hover:text-white'
+                        ? 'text-amber-700 dark:text-amber-300'
+                        : 'text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white'
                     }`}
                   >
                     {item.label}
@@ -173,10 +173,10 @@ export default function ObligationTimeline() {
                     <span
                       className={`text-[10px] font-mono px-1.5 py-0.2 rounded mt-1 inline-block ${
                         item.daysDiff <= 7
-                          ? 'bg-rose-500/20 text-rose-300'
+                          ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                           : item.daysDiff <= 30
-                          ? 'bg-amber-500/20 text-amber-300'
-                          : 'bg-navy-800 text-slate-400'
+                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
                       }`}
                     >
                       {item.daysDiff <= 0 ? 'Due Today' : `in ${item.daysDiff}d`}
@@ -191,31 +191,29 @@ export default function ObligationTimeline() {
 
       {/* Selected Node Details Card */}
       {selectedItem && (
-        <div className="glass-card p-6 rounded-2xl border border-indigo-500/30 bg-navy-900/90 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-brand-indigo/10 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+        <div className="p-6 rounded-2xl border border-zinc-200 dark:border-[#27272A] bg-white dark:bg-[#121215] shadow-sm relative overflow-hidden">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-zinc-100 dark:border-[#27272A]">
             <div className="flex items-center gap-3">
               <div
                 className={`p-3 rounded-xl border ${
                   selectedItem.isCritical
-                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                    ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
                     : selectedItem.isNearTerm
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                    : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                    ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                    : 'bg-indigo-50 dark:bg-indigo-950/60 text-brand-indigo border-indigo-200 dark:border-indigo-800'
                 }`}
               >
                 <Clock className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-white/10 text-slate-300 mr-2">
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 mr-2">
                   {selectedItem.type || 'Milestone'}
                 </span>
-                <h3 className="text-lg font-bold text-white inline-block">
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-white inline-block">
                   {selectedItem.label}
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Party Responsible: <strong className="text-white">{selectedItem.party || 'All Parties'}</strong>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  Party Responsible: <strong className="text-zinc-800 dark:text-zinc-200">{selectedItem.party || 'All Parties'}</strong>
                 </p>
               </div>
             </div>
@@ -223,17 +221,17 @@ export default function ObligationTimeline() {
             {/* Proximity / Days Remaining Badge */}
             <div className="flex items-center gap-2">
               <div className="text-right">
-                <span className="text-xs text-slate-400 block font-mono">Date Scheduled</span>
-                <span className="text-sm font-bold text-white font-mono">{selectedItem.date}</span>
+                <span className="text-xs text-zinc-400 dark:text-zinc-500 block font-mono">Date Scheduled</span>
+                <span className="text-sm font-bold text-zinc-900 dark:text-white font-mono">{selectedItem.date}</span>
               </div>
               {selectedItem.daysDiff !== null && (
                 <div
                   className={`px-3 py-1.5 rounded-xl border text-xs font-bold font-mono ${
                     selectedItem.isCritical
-                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                      ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
                       : selectedItem.isNearTerm
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                      : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                      : 'bg-indigo-50 dark:bg-indigo-950/60 text-brand-indigo border-indigo-200 dark:border-indigo-800'
                   }`}
                 >
                   {selectedItem.daysDiff <= 0 ? 'ACTION REQUIRED TODAY' : `${selectedItem.daysDiff} DAYS REMAINING`}
@@ -245,21 +243,21 @@ export default function ObligationTimeline() {
           {/* Description & Source Clause */}
           <div className="mt-4 space-y-3">
             <div>
-              <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+              <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
                 Milestone Description
               </h4>
-              <p className="text-sm text-slate-200 leading-relaxed">
+              <p className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">
                 {selectedItem.description}
               </p>
             </div>
 
             {selectedItem.source_clause && (
-              <div className="p-3 rounded-xl bg-navy-950/80 border border-white/5">
-                <span className="text-[11px] font-semibold text-indigo-300 flex items-center gap-1.5 mb-1">
+              <div className="p-3 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A]">
+                <span className="text-[11px] font-semibold text-brand-indigo flex items-center gap-1.5 mb-1">
                   <Info className="w-3.5 h-3.5" />
                   Contract Citation
                 </span>
-                <p className="text-xs font-mono text-slate-300">
+                <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300">
                   {selectedItem.source_clause}
                 </p>
               </div>
@@ -268,8 +266,8 @@ export default function ObligationTimeline() {
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-1.5 text-[11px] text-slate-500 pr-2">
-        <Sparkles className="w-3 h-3 text-indigo-400" />
+      <div className="flex items-center justify-end gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500 pr-2">
+        <Sparkles className="w-3 h-3 text-brand-indigo" />
         <span>Powered by Gemini 1.5 Pro</span>
       </div>
     </div>
