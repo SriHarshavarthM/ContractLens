@@ -195,6 +195,7 @@ export const useContractStore = create((set, get) => ({
   // Full AI Analysis Pipeline triggered after document upload/load (Progressive 2-Batch Loading)
   analyzeContract: async (contractObj, autoNavigate = true) => {
     const today = new Date().toISOString().split('T')[0];
+    const contractId = contractObj.contract_id || contractObj.id;
     set({ isAnalyzing: true, analysisStep: 'Analyzing terms, obligations & risk clauses...' });
 
     try {
@@ -207,17 +208,18 @@ export const useContractStore = create((set, get) => ({
             text: contractObj.text,
             filename: contractObj.filename || 'contract.pdf',
             ref_date: today,
+            contract_id: contractId,
           }),
         }),
         fetch(`${API_BASE}/obligations`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: contractObj.text, ref_date: today }),
+          body: JSON.stringify({ text: contractObj.text, ref_date: today, contract_id: contractId }),
         }),
         fetch(`${API_BASE}/flags`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: contractObj.text, ref_date: today }),
+          body: JSON.stringify({ text: contractObj.text, ref_date: today, contract_id: contractId }),
         })
       ]);
 
@@ -231,6 +233,7 @@ export const useContractStore = create((set, get) => ({
       // Immediately unblock user and show Overview
       const initialEnriched = {
         ...contractObj,
+        id: contractId || contractObj.id,
         extractedData,
         obligations,
         flags,
@@ -240,7 +243,7 @@ export const useContractStore = create((set, get) => ({
         analyzedAt: new Date().toISOString(),
       };
 
-      const existing = get().contracts.filter((c) => c.id !== contractObj.id);
+      const existing = get().contracts.filter((c) => c.id !== initialEnriched.id);
       set({
         contracts: [initialEnriched, ...existing],
         activeContractId: initialEnriched.id,
@@ -297,6 +300,114 @@ export const useContractStore = create((set, get) => ({
       return { success: false, error: err.message };
     }
   },
+
+  // Supabase Contract Repository Persistence Methods
+  fetchContracts: async () => {
+    try {
+      const res = await fetch(`${API_BASE}/contracts`);
+      if (!res.ok) return;
+      const remoteList = await res.json();
+      if (Array.isArray(remoteList) && remoteList.length > 0) {
+        const currentContracts = get().contracts;
+        const merged = [...currentContracts];
+        for (const remote of remoteList) {
+          const idx = merged.findIndex(c => c.id === remote.id);
+          if (idx >= 0) {
+            merged[idx] = { ...merged[idx], ...remote, title: remote.name || merged[idx].title };
+          } else {
+            merged.push({
+              id: remote.id,
+              title: remote.name || 'Contract Document',
+              filename: remote.name || 'contract.pdf',
+              status: remote.status || 'active',
+              uploaded_at: remote.uploaded_at,
+              health_score: remote.health_score || 78,
+              text: remote.raw_text || '',
+              pages: 1,
+              obligations: [],
+              flags: [],
+              timeline: [],
+              summary: null,
+              alerts: null,
+            });
+          }
+        }
+        set({ contracts: merged });
+        if (!get().activeContractId && merged.length > 0) {
+          get().setActiveContract(merged[0]);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch contracts from Supabase:', e);
+    }
+  },
+
+  loadContractById: async (contractId) => {
+    try {
+      const res = await fetch(`${API_BASE}/contracts/${contractId}`);
+      if (!res.ok) {
+        const found = get().contracts.find(c => c.id === contractId);
+        if (found) get().setActiveContract(found);
+        return;
+      }
+      const data = await res.json();
+      const updated = {
+        id: data.id,
+        title: data.name,
+        filename: data.name,
+        text: data.raw_text,
+        status: data.status,
+        uploaded_at: data.uploaded_at,
+        extractedData: data.extractedData,
+        obligations: data.obligations || [],
+        flags: data.flags || [],
+        timeline: [],
+        summary: null,
+        alerts: null,
+      };
+      const existing = get().contracts.filter(c => c.id !== data.id);
+      set({
+        contracts: [updated, ...existing],
+        activeContractId: updated.id,
+        extractedData: updated.extractedData,
+        obligations: updated.obligations,
+        flags: updated.flags,
+        activeTab: 'overview',
+      });
+    } catch (e) {
+      console.error('Error loading contract from Supabase:', e);
+      const found = get().contracts.find(c => c.id === contractId);
+      if (found) get().setActiveContract(found);
+    }
+  },
+
+  deleteContract: async (contractId) => {
+    try {
+      await fetch(`${API_BASE}/contracts/${contractId}`, { method: 'DELETE' });
+    } catch (e) {
+      console.warn('Error deleting on backend:', e);
+    }
+    const remaining = get().contracts.filter(c => c.id !== contractId);
+    const wasActive = get().activeContractId === contractId;
+    set({
+      contracts: remaining,
+      activeContractId: wasActive ? (remaining[0]?.id || null) : get().activeContractId,
+    });
+    if (wasActive && remaining.length > 0) {
+      get().setActiveContract(remaining[0]);
+    } else if (remaining.length === 0) {
+      set({
+        extractedData: null,
+        obligations: [],
+        flags: [],
+        timeline: [],
+        summary: null,
+        alerts: null,
+        activeTab: 'upload',
+      });
+    }
+  },
+
 
   // Perform Comparison between contractA and contractB
   runComparison: async () => {

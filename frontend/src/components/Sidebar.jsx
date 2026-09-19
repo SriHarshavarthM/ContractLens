@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   FolderOpen,
   Plus,
+  Trash2,
   CheckCircle2,
   Sun,
   Moon,
@@ -30,6 +31,9 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
     contracts,
     activeContractId,
     setActiveContract,
+    loadContractById,
+    deleteContract,
+    fetchContracts,
     getHealthScore,
     theme,
     toggleTheme,
@@ -37,6 +41,10 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
     setAuthModal,
     logout
   } = useContractStore();
+
+  React.useEffect(() => {
+    fetchContracts();
+  }, []);
 
   const activeContract = contracts.find((c) => c.id === activeContractId) || contracts[0];
   const healthScore = getHealthScore();
@@ -219,24 +227,43 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
                 {contracts.map((c) => {
                   const isCurrent = c.id === activeContractId;
                   return (
-                    <button
+                    <div
                       key={c.id}
-                      onClick={() => {
-                        setActiveContract(c);
-                        setActiveTab('overview');
-                      }}
-                      className={`w-full text-left px-3 py-1.5 rounded-lg text-[11px] truncate flex items-center gap-2 transition-colors ${
+                      className={`w-full px-2.5 py-1.5 rounded-lg text-[11px] flex items-center justify-between gap-1.5 transition-colors group ${
                         isCurrent
                           ? 'bg-indigo-50 dark:bg-indigo-950/40 text-brand-indigo font-bold border border-indigo-200 dark:border-indigo-800/60'
-                          : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-850'
+                          : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800'
                       }`}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${isCurrent ? 'bg-brand-indigo' : 'bg-zinc-400 dark:bg-zinc-600'}`} />
-                      <span className="truncate">{c.title || c.filename}</span>
-                    </button>
+                      <button
+                        onClick={() => {
+                          if (c.extractedData) setActiveContract(c);
+                          else loadContractById(c.id);
+                          setActiveTab('overview');
+                        }}
+                        className="flex items-center gap-2 truncate flex-1 text-left min-w-0"
+                        title={c.title || c.name || c.filename}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isCurrent ? 'bg-brand-indigo' : 'bg-zinc-400 dark:bg-zinc-600'}`} />
+                        <span className="truncate">{c.title || c.name || c.filename}</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('Delete this contract from repository?')) {
+                            deleteContract(c.id);
+                          }
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-rose-500 rounded transition-opacity"
+                        title="Delete contract"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
+
             </div>
           )}
         </div>

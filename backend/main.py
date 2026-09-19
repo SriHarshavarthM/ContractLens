@@ -15,6 +15,7 @@ from routes import (
     summary,
     alerts,
     auth,
+    contracts,
 )
 from services import gemini_client
 
@@ -35,6 +36,7 @@ app.add_middleware(
 
 # Register route modules
 app.include_router(auth.router, tags=["Authentication"])
+app.include_router(contracts.router, tags=["Contracts"])
 app.include_router(upload.router, tags=["Upload"])
 app.include_router(extract.router, tags=["Extraction"])
 app.include_router(obligations.router, tags=["Obligations"])
@@ -54,8 +56,18 @@ def health_check():
         "status": "healthy",
         "app": "ContractLens AI",
         "gemini_configured": bool(gemini_client.GEMINI_API_KEY),
-        "model": gemini_client.active_model_name or "gemini-flash-latest",
-        "fallback_mode": False,
+        "model": "gemini-1.5-pro",
+        "fallback_mode": gemini_client.USE_FALLBACK,
+    }
+
+@app.get("/debug/ai")
+async def debug_ai():
+    from services.gemini_client import USE_FALLBACK, GEMINI_API_KEY
+    return {
+        "api_key_loaded": bool(GEMINI_API_KEY),
+        "api_key_prefix": GEMINI_API_KEY[:8] + "..." if GEMINI_API_KEY else None,
+        "using_fallback": USE_FALLBACK,
+        "status": "AI active" if not USE_FALLBACK else "Fallback mode"
     }
 
 @app.post("/config/key")
