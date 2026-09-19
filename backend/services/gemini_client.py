@@ -9,9 +9,17 @@ load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+PRIMARY_MODEL = "gemini-2.5-pro"
+FALLBACK_MODEL = "gemini-1.5-pro"
+
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-pro")
+    try:
+        model = genai.GenerativeModel(PRIMARY_MODEL)
+        print(f"[gemini_client] Using model: {PRIMARY_MODEL}")
+    except Exception:
+        model = genai.GenerativeModel(FALLBACK_MODEL)
+        print(f"[gemini_client] Fell back to model: {FALLBACK_MODEL}")
     USE_FALLBACK = False
     print(f"[gemini_client] Gemini API configured successfully.")
 else:
@@ -26,7 +34,12 @@ def set_api_key(api_key: str) -> bool:
     if GEMINI_API_KEY:
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            model = genai.GenerativeModel("gemini-1.5-pro")
+            try:
+                model = genai.GenerativeModel(PRIMARY_MODEL)
+                print(f"[gemini_client] Using model: {PRIMARY_MODEL}")
+            except Exception:
+                model = genai.GenerativeModel(FALLBACK_MODEL)
+                print(f"[gemini_client] Fell back to model: {FALLBACK_MODEL}")
             USE_FALLBACK = False
             print("[gemini_client] Gemini API configured via set_api_key.")
             return True
@@ -45,7 +58,122 @@ def clean_json_response(text: str) -> str:
     # Remove ```json ... ``` or ``` ... ``` wrappers
     text = re.sub(r'^```(?:json)?\s*', '', text)
     text = re.sub(r'\s*```$', '', text)
+    text = text.strip()
+    first_brace = text.find('{')
+    last_brace = text.rfind('}')
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        text = text[first_brace:last_brace + 1]
     return text.strip()
+
+
+from typing import Callable, Optional
+import threading
+import time
+
+def call_gemini_stream(
+    system_prompt: str,
+    user_content: str,
+    on_chunk: Optional[Callable[[str], None]] = None,   # called for each streamed text chunk
+    on_complete: Optional[Callable[[dict], None]] = None, # called with final parsed JSON
+    on_error: Optional[Callable[[str], None]] = None      # called on any error
+) -> dict:
+    """
+    Streams Gemini response and fires callbacks as chunks arrive.
+    Falls back to non-streaming call_gemini() if streaming fails.
+    Always returns the final parsed dict synchronously as well.
+    """
+    if USE_FALLBACK:
+        result = get_fallback_response(system_prompt)
+        if on_chunk:
+            # Emit chunks of the fallback JSON so live streaming UI renders tokens nicely
+            serialized = json.dumps(result, indent=2)
+            chunk_size = 40
+            for i in range(0, len(serialized), chunk_size):
+                on_chunk(serialized[i:i + chunk_size])
+                time.sleep(0.02)
+        if on_complete:
+            on_complete(result)
+        return result
+
+    full_prompt = (
+        f"{system_prompt}\n\n"
+        f"Contract Text:\n{user_content}\n\n"
+        f"IMPORTANT: Return ONLY a raw JSON object. "
+        f"Do NOT wrap in markdown. Do NOT add any explanation. "
+        f"Start your response with {{ and end with }}."
+    )
+
+    accumulated = ""
+
+    try:
+        # Generate with streaming. If primary model encounters availability issues at runtime,
+        # try fallback model or flash-latest before falling back to local fallback response.
+        active_models = [model]
+        if hasattr(model, 'model_name') and PRIMARY_MODEL in getattr(model, 'model_name', ''):
+            active_models.append(genai.GenerativeModel(FALLBACK_MODEL))
+            active_models.append(genai.GenerativeModel("gemini-flash-latest"))
+
+        last_error = None
+        for m in active_models:
+            try:
+                response = m.generate_content(full_prompt, stream=True)
+                for chunk in response:
+                    if chunk.text:
+                        accumulated += chunk.text
+                        if on_chunk:
+                            on_chunk(chunk.text)   # fire chunk callback with raw token text
+                if accumulated:
+                    break
+            except Exception as ex:
+                last_error = ex
+                print(f"[gemini_client] Stream attempt with {getattr(m, 'model_name', m)} failed: {ex}")
+                accumulated = ""
+                continue
+
+        if not accumulated and last_error:
+            raise last_error
+
+        # Stream complete — clean and parse
+        cleaned = clean_json_response(accumulated)
+        result = json.loads(cleaned)
+
+        if on_complete:
+            on_complete(result)
+
+        return result
+
+    except json.JSONDecodeError as e:
+        error_msg = f"JSON parse error after streaming: {e}"
+        print(f"[gemini_client] {error_msg}. Accumulated: {accumulated[:300]}")
+        # Try non-streaming fallback before giving up
+        try:
+            res = call_gemini(system_prompt, user_content)
+            if on_complete:
+                on_complete(res)
+            return res
+        except Exception as ex:
+            if on_error:
+                on_error(error_msg)
+            fallback = get_fallback_response(system_prompt)
+            if on_complete:
+                on_complete(fallback)
+            return fallback
+
+    except Exception as e:
+        error_msg = f"Streaming error: {e}"
+        print(f"[gemini_client] {error_msg}")
+        try:
+            res = call_gemini(system_prompt, user_content)
+            if on_complete:
+                on_complete(res)
+            return res
+        except Exception as ex:
+            if on_error:
+                on_error(error_msg)
+            fallback = get_fallback_response(system_prompt)
+            if on_complete:
+                on_complete(fallback)
+            return fallback
 
 
 def call_gemini(system_prompt: str, user_content: str, *args, **kwargs) -> dict:
@@ -63,8 +191,21 @@ def call_gemini(system_prompt: str, user_content: str, *args, **kwargs) -> dict:
 
     raw = ""
     try:
-        response = model.generate_content(full_prompt)
-        raw = response.text
+        active_models = [model]
+        if hasattr(model, 'model_name') and PRIMARY_MODEL in getattr(model, 'model_name', ''):
+            active_models.append(genai.GenerativeModel(FALLBACK_MODEL))
+            active_models.append(genai.GenerativeModel("gemini-flash-latest"))
+
+        for m in active_models:
+            try:
+                response = m.generate_content(full_prompt)
+                raw = response.text
+                if raw:
+                    break
+            except Exception as ex:
+                print(f"[gemini_client] Non-stream attempt with {getattr(m, 'model_name', m)} failed: {ex}")
+                continue
+
         print(f"[gemini_client] Raw response (first 300 chars): {raw[:300]}")
         cleaned = clean_json_response(raw)
         return json.loads(cleaned)

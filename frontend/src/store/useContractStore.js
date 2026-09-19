@@ -24,6 +24,7 @@ export const useContractStore = create((set, get) => ({
   // Loading & Processing states
   isAnalyzing: false,
   analysisStep: '', // e.g. "Extracting metadata...", "Flagging risks..."
+  streamedTokens: '',
   isComparing: false,
   qaLoading: false,
   qaHistory: [], // [{ id, question, answer, confidence, source_section, source_text, timestamp }]
@@ -51,6 +52,46 @@ export const useContractStore = create((set, get) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
   setKeyModalOpen: (open) => set({ isKeyModalOpen: open }),
   setAuthModal: (open, mode = 'login') => set({ isAuthModalOpen: open, authModalMode: mode }),
+
+  // Streaming & Progressive Loading Setters
+  setProcessing: (step) => set({ isAnalyzing: true, analysisStep: step }),
+  setProcessingError: (err) => set({ isAnalyzing: false, analysisStep: '', errorMsg: err }),
+  setStreamedTokens: (tokens) => set({ streamedTokens: tokens }),
+  setExtractedData: (data) => set({ extractedData: data }),
+  setObligations: (obligations) => set({ obligations: obligations || [] }),
+  setTimeline: (timeline) => set({ timeline: timeline || [] }),
+  setFlags: (flags) => set({ flags: flags || [] }),
+  setSummary: (summary) => set({ summary: summary || null }),
+  setAlerts: (alerts) => set({ alerts: alerts || null }),
+  setContractReady: ({ name, rawText, pages, wordCount, id, contractObj }) => {
+    const cid = id || (contractObj && contractObj.id) || ('c_' + Date.now());
+    const enriched = {
+      ...(contractObj || {}),
+      id: cid,
+      filename: name || (contractObj && contractObj.filename) || 'contract.pdf',
+      title: (name || (contractObj && contractObj.filename) || 'Contract').replace(/\.[^/.]+$/, ''),
+      text: rawText || (contractObj && contractObj.text) || '',
+      pages: pages || (contractObj && contractObj.pages) || 1,
+      wordCount: wordCount || (contractObj && contractObj.wordCount) || (rawText ? rawText.split(/\s+/).length : 0),
+      extractedData: get().extractedData,
+      obligations: get().obligations,
+      timeline: get().timeline,
+      flags: get().flags,
+      summary: get().summary,
+      alerts: get().alerts,
+      analyzedAt: new Date().toISOString(),
+    };
+    const existing = get().contracts.filter((c) => c.id !== enriched.id);
+    set({
+      contracts: [enriched, ...existing],
+      activeContractId: enriched.id,
+      contractA: enriched,
+      isAnalyzing: false,
+      analysisStep: '',
+      streamedTokens: '',
+      activeTab: 'overview',
+    });
+  },
 
   loginDemo: async () => {
     try {
@@ -199,33 +240,74 @@ export const useContractStore = create((set, get) => ({
     set({ isAnalyzing: true, analysisStep: 'Analyzing terms, obligations & risk clauses...' });
 
     try {
+      // Stream extract (slowest + most tokens) with live token tracking
+      const extractStreamPromise = (async () => {
+        try {
+          const res = await fetch(`${API_BASE}/extract/stream`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: contractObj.text,
+              filename: contractObj.filename || 'contract.pdf',
+              ref_date: today,
+              contract_id: contractId,
+            }),
+          });
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let accumulated = '';
+          let resultData = null;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const raw = decoder.decode(value, { stream: true });
+            const lines = raw.split('\n').filter((l) => l.startsWith('data: '));
+            for (const line of lines) {
+              try {
+                const event = JSON.parse(line.replace('data: ', ''));
+                if (event.type === 'chunk') {
+                  accumulated += event.text;
+                  set({
+                    streamedTokens: accumulated,
+                    analysisStep: `Gemini is reading your contract... (${accumulated.length} tokens)`,
+                  });
+                } else if (event.type === 'complete') {
+                  resultData = event.data;
+                }
+              } catch (e) {}
+            }
+          }
+          return resultData || {};
+        } catch (e) {
+          // Fallback to regular extract if stream had error
+          const res = await fetch(`${API_BASE}/extract`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: contractObj.text,
+              filename: contractObj.filename || 'contract.pdf',
+              ref_date: today,
+              contract_id: contractId,
+            }),
+          });
+          return await res.json();
+        }
+      })();
+
       // Batch 1 (Parallel): Core extraction, obligations, and risk flags
-      const [extractRes, obRes, flagRes] = await Promise.all([
-        fetch(`${API_BASE}/extract`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: contractObj.text,
-            filename: contractObj.filename || 'contract.pdf',
-            ref_date: today,
-            contract_id: contractId,
-          }),
-        }),
+      const [extractedData, obData, flagData] = await Promise.all([
+        extractStreamPromise,
         fetch(`${API_BASE}/obligations`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: contractObj.text, ref_date: today, contract_id: contractId }),
-        }),
+        }).then((r) => r.json()),
         fetch(`${API_BASE}/flags`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: contractObj.text, ref_date: today, contract_id: contractId }),
-        })
+        }).then((r) => r.json()),
       ]);
-
-      const extractedData = await extractRes.json();
-      const obData = await obRes.json();
-      const flagData = await flagRes.json();
 
       const obligations = obData.obligations || [];
       const flags = flagData.flags || [];

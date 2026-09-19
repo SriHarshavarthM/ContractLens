@@ -47,28 +47,145 @@ app.include_router(qa.router, tags=["Q&A"])
 app.include_router(summary.router, tags=["Summary"])
 app.include_router(alerts.router, tags=["Alerts"])
 
+import asyncio
+import json
+import threading
+from fastapi.responses import StreamingResponse
+from services.gemini_client import call_gemini_stream, PRIMARY_MODEL
+from services.supabase_client import supabase
+from routes.extract import SYSTEM_PROMPT as EXTRACT_SYSTEM_PROMPT, sanitize_date as sanitize_extract_date
+from routes.obligations import SYSTEM_PROMPT as OBLIGATIONS_SYSTEM_PROMPT, sanitize_date as sanitize_oblig_date
+from routes.summary import SYSTEM_PROMPT as SUMMARY_SYSTEM_PROMPT
+
 class ApiKeyUpdate(BaseModel):
     api_key: str
 
 @app.get("/health")
 def health_check():
+    from services.gemini_client import USE_FALLBACK, GEMINI_API_KEY, PRIMARY_MODEL
     return {
         "status": "healthy",
         "app": "ContractLens AI",
-        "gemini_configured": bool(gemini_client.GEMINI_API_KEY),
-        "model": "gemini-1.5-pro",
-        "fallback_mode": gemini_client.USE_FALLBACK,
+        "gemini_configured": bool(GEMINI_API_KEY),
+        "model": PRIMARY_MODEL if not USE_FALLBACK else "fallback-engine",
+        "fallback_mode": USE_FALLBACK,
     }
 
 @app.get("/debug/ai")
 async def debug_ai():
-    from services.gemini_client import USE_FALLBACK, GEMINI_API_KEY
+    from services.gemini_client import USE_FALLBACK, GEMINI_API_KEY, PRIMARY_MODEL
     return {
         "api_key_loaded": bool(GEMINI_API_KEY),
         "api_key_prefix": GEMINI_API_KEY[:8] + "..." if GEMINI_API_KEY else None,
         "using_fallback": USE_FALLBACK,
+        "model": PRIMARY_MODEL if not USE_FALLBACK else "fallback-engine",
         "status": "AI active" if not USE_FALLBACK else "Fallback mode"
     }
+
+def save_extraction_supabase(payload: dict, data: dict):
+    contract_id = payload.get("contract_id")
+    if supabase and contract_id:
+        try:
+            ext_payload = {
+                "contract_id": contract_id,
+                "parties": data.get("parties"),
+                "effective_date": sanitize_extract_date(data.get("effective_date")),
+                "expiration_date": sanitize_extract_date(data.get("expiration_date")),
+                "renewal_terms": str(data.get("renewal_terms", "") or ""),
+                "payment_terms": str(data.get("payment_terms", "") or ""),
+                "termination_conditions": str(data.get("termination_conditions", "") or ""),
+                "service_obligations": str(data.get("service_obligations", "") or ""),
+                "source_sections": data.get("source_sections"),
+                "health_score": 78
+            }
+            supabase.table("contract_extractions").insert(ext_payload).execute()
+        except Exception as e:
+            print(f"[extract/stream] Supabase save error: {e}")
+
+def save_obligations_supabase(payload: dict, data: dict):
+    contract_id = payload.get("contract_id")
+    obligations_list = data.get("obligations", [])
+    if supabase and contract_id and obligations_list:
+        try:
+            records = []
+            for ob in obligations_list:
+                urgency = ob.get("urgency", "Medium")
+                if urgency not in ["Critical", "High", "Medium", "Low"]:
+                    urgency = "Medium"
+                records.append({
+                    "contract_id": contract_id,
+                    "party": str(ob.get("party", "")),
+                    "description": str(ob.get("description", "")),
+                    "deadline": sanitize_oblig_date(ob.get("deadline")),
+                    "urgency": urgency,
+                    "source_clause": str(ob.get("source_clause", "")),
+                    "is_dismissed": False
+                })
+            supabase.table("obligations").insert(records).execute()
+        except Exception as e:
+            print(f"[obligations/stream] Supabase save error: {e}")
+
+def make_stream_response(system_prompt: str, payload: dict, post_process_fn=None):
+    contract_text = payload.get("text", "")
+
+    async def event_generator():
+        loop = asyncio.get_running_loop()
+        queue = asyncio.Queue()
+
+        def on_chunk(text: str):
+            loop.call_soon_threadsafe(queue.put_nowait, {"type": "chunk", "text": text})
+
+        def on_complete(result: dict):
+            if post_process_fn:
+                try:
+                    post_process_fn(payload, result)
+                except Exception as e:
+                    print(f"[stream post_process error]: {e}")
+            loop.call_soon_threadsafe(queue.put_nowait, {"type": "complete", "data": result})
+
+        def on_error(error: str):
+            loop.call_soon_threadsafe(queue.put_nowait, {"type": "error", "message": error})
+
+        thread = threading.Thread(
+            target=call_gemini_stream,
+            kwargs={
+                "system_prompt": system_prompt,
+                "user_content": contract_text,
+                "on_chunk": on_chunk,
+                "on_complete": on_complete,
+                "on_error": on_error,
+            }
+        )
+        thread.start()
+
+        while True:
+            event = await queue.get()
+            yield f"data: {json.dumps(event)}\n\n"
+            if event["type"] in ("complete", "error"):
+                break
+
+        thread.join(timeout=35)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+@app.post("/extract/stream")
+async def extract_stream(payload: dict):
+    return make_stream_response(EXTRACT_SYSTEM_PROMPT, payload, save_extraction_supabase)
+
+@app.post("/obligations/stream")
+async def obligations_stream(payload: dict):
+    return make_stream_response(OBLIGATIONS_SYSTEM_PROMPT, payload, save_obligations_supabase)
+
+@app.post("/summary/stream")
+async def summary_stream(payload: dict):
+    return make_stream_response(SUMMARY_SYSTEM_PROMPT, payload)
 
 @app.post("/config/key")
 def update_api_key(data: ApiKeyUpdate):

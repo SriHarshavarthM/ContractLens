@@ -44,6 +44,7 @@ export default function AppShell({ children }) {
     setKeyModalOpen,
     isAnalyzing,
     analysisStep,
+    streamedTokens,
     theme,
     toggleTheme,
     user,
@@ -254,16 +255,28 @@ export default function AppShell({ children }) {
         {/* SCROLLABLE MAIN CONTENT DASHBOARD */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
           
-          {/* Analysis Loading Overlay */}
-          {isAnalyzing && (
+          {/* Analysis Loading Overlay (when active from other tabs) */}
+          {isAnalyzing && activeTab !== 'upload' && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-[#141417] p-6 rounded-2xl max-w-sm w-full border border-zinc-200 dark:border-[#27272A] shadow-2xl flex flex-col items-center text-center">
+              <div className="bg-white dark:bg-[#141417] p-6 rounded-2xl max-w-md w-full border border-zinc-200 dark:border-[#27272A] shadow-2xl flex flex-col items-center text-center">
                 <div className="w-12 h-12 rounded-full border-4 border-indigo-200 dark:border-zinc-800 border-t-brand-indigo animate-spin mb-3" />
-                <h4 className="font-bold text-zinc-900 dark:text-white text-sm mb-1">Analyzing Contract with Gemini AI</h4>
+                <h4 className="font-bold text-zinc-900 dark:text-white text-sm mb-1">Analyzing Contract with Gemini 2.5 Pro</h4>
                 <p className="text-xs text-brand-indigo font-mono mb-3">{analysisStep}</p>
                 <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
                   <div className="bg-gradient-to-r from-brand-indigo to-cyan-400 h-full animate-shimmer" style={{ width: '100%' }} />
                 </div>
+                {streamedTokens && (
+                  <div className="mt-4 w-full p-3 bg-black/40 rounded-lg border border-white/10 max-h-32 overflow-hidden relative text-left">
+                    <p className="text-xs text-indigo-400 mb-1 font-mono flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      ⚡ Gemini 2.5 Pro — Live Output
+                    </p>
+                    <p className="text-xs text-gray-400 font-mono leading-relaxed line-clamp-4">
+                      {streamedTokens.slice(-400)}
+                    </p>
+                    <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+                  </div>
+                )}
               </div>
             </div>
           )}
