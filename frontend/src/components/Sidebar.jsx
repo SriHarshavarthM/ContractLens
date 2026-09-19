@@ -279,14 +279,14 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
               title="Click to Switch Account"
             >
               <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 shadow">
-                {user?.avatar_initials || 'PD'}
+                {user?.avatar_initials || user?.email?.[0]?.toUpperCase() || 'U'}
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="font-bold text-xs text-zinc-900 dark:text-white truncate">
-                  {user?.name || 'Panji Dwi'}
+                  {user?.name || 'User'}
                 </span>
                 <span className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate font-mono">
-                  {user?.employee_id || '#EMP07'}
+                  {user?.role || 'Contract Analyst'}
                 </span>
               </div>
             </div>
@@ -314,9 +314,9 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
             <div
               onClick={() => setAuthModal(true)}
               className="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center cursor-pointer"
-              title={user?.name || 'Panji Dwi'}
+              title={user?.name || 'User'}
             >
-              {user?.avatar_initials || 'PD'}
+              {user?.avatar_initials || user?.email?.[0]?.toUpperCase() || 'U'}
             </div>
             <button
               onClick={toggleTheme}

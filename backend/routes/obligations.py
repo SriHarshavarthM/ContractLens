@@ -1,9 +1,11 @@
 import re
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from services.gemini_client import call_gemini
 from services.supabase_client import supabase
+from services.security import get_current_user
+from services.ownership import owns_contract
 
 router = APIRouter()
 
@@ -27,14 +29,14 @@ def sanitize_date(d):
     return m.group(0) if m else None
 
 @router.post("/obligations")
-async def get_obligations(req: ObligationsRequest):
+async def get_obligations(req: ObligationsRequest, current_user: dict = Depends(get_current_user)):
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Contract text is required")
     
     result = call_gemini(SYSTEM_PROMPT, req.text)
     obligations_list = result.get("obligations", [])
 
-    if supabase and req.contract_id and obligations_list:
+    if supabase and req.contract_id and owns_contract(current_user, req.contract_id):
         try:
             records = []
             for ob in obligations_list:

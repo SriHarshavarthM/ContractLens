@@ -1,9 +1,11 @@
 import re
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from services.gemini_client import call_gemini
 from services.supabase_client import supabase
+from services.security import get_current_user
+from services.ownership import owns_contract
 
 router = APIRouter()
 
@@ -28,7 +30,7 @@ def sanitize_date(d):
     return m.group(0) if m else None
 
 @router.post("/extract")
-async def extract_contract_fields(req: ExtractRequest):
+async def extract_contract_fields(req: ExtractRequest, current_user: dict = Depends(get_current_user)):
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Contract text is required")
     
@@ -39,7 +41,7 @@ async def extract_contract_fields(req: ExtractRequest):
     if "filename" not in data:
         data["filename"] = req.filename
 
-    if supabase and req.contract_id:
+    if supabase and req.contract_id and owns_contract(current_user, req.contract_id):
         try:
             ext_payload = {
                 "contract_id": req.contract_id,

@@ -24,10 +24,12 @@ export default function CompareView() {
     compareDiff,
     runComparison,
     isComparing,
+    authedFetch,
     contracts
   } = useContractStore();
 
   const [activeTabSlot, setActiveTabSlot] = useState('diff'); // 'diff' | 'raw'
+  const [uploadError, setUploadError] = useState(null);
 
   // If contractA and contractB are present, auto run comparison if not yet computed
   useEffect(() => {
@@ -37,6 +39,7 @@ export default function CompareView() {
   }, [contractA, contractB]);
 
   const loadSampleSlots = () => {
+    setUploadError(null);
     const v1 = {
       id: 'v1_' + Date.now(),
       title: 'Enterprise SaaS Agreement (v1.0 Standard)',
@@ -57,14 +60,34 @@ export default function CompareView() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setUploadError(null);
+
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('http://localhost:8000/upload', {
+      const res = await authedFetch('http://localhost:8000/upload', {
         method: 'POST',
         body: formData,
       });
+
+      if (!res.ok) {
+        let detail = `Request failed with status ${res.status}.`;
+        try {
+          const body = await res.json();
+          if (body && body.detail) detail = String(body.detail);
+        } catch {
+          /* Non-JSON error body; keep the status-based message. */
+        }
+        setUploadError(detail);
+        return;
+      }
+
       const data = await res.json();
+      if (!data || !data.text) {
+        setUploadError('The uploaded document could not be read. Please try a valid PDF or text file.');
+        return;
+      }
+
       const obj = {
         id: 'slot_' + Date.now(),
         title: file.name.replace(/\.[^/.]+$/, ''),
@@ -75,6 +98,7 @@ export default function CompareView() {
       else setContractB(obj);
     } catch (err) {
       console.error(err);
+      setUploadError(err.message || 'Upload failed. Please try again.');
     }
   };
 
@@ -231,6 +255,13 @@ export default function CompareView() {
             )}
           </div>
         </div>
+
+        {uploadError && (
+          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{uploadError}</span>
+          </div>
+        )}
       </div>
 
       {/* Comparison Results */}

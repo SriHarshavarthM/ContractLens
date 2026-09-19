@@ -1,9 +1,10 @@
 import io
 import uuid
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
 from pydantic import BaseModel
 import pymupdf as fitz
 from services.supabase_client import supabase
+from services.security import get_current_user
 
 router = APIRouter()
 
@@ -12,8 +13,11 @@ class DirectTextInput(BaseModel):
     text: str
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
-    """Handle PDF/DOCX/TXT contract uploads, extract text, and save to Supabase."""
+async def upload_file(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Handle PDF/DOCX/TXT contract uploads, extract text, and save to Supabase scoped to the user."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
     
@@ -53,7 +57,8 @@ async def upload_file(file: UploadFile = File(...)):
             insert_res = supabase.table("contracts").insert({
                 "name": filename,
                 "raw_text": extracted_text,
-                "status": "active"
+                "status": "active",
+                "user_id": current_user["sub"],
             }).execute()
             if insert_res.data and len(insert_res.data) > 0:
                 contract_id = insert_res.data[0].get("id")
@@ -73,8 +78,11 @@ async def upload_file(file: UploadFile = File(...)):
     }
 
 @router.post("/upload/text")
-async def upload_raw_text(data: DirectTextInput):
-    """Directly register raw contract text (e.g. sample contract) and save to Supabase."""
+async def upload_raw_text(
+    data: DirectTextInput,
+    current_user: dict = Depends(get_current_user),
+):
+    """Directly register raw contract text (e.g. sample contract) and save to Supabase scoped to the user."""
     text = data.text.strip()
     words = len(text.split()) if text else 0
 
@@ -84,7 +92,8 @@ async def upload_raw_text(data: DirectTextInput):
             insert_res = supabase.table("contracts").insert({
                 "name": data.filename,
                 "raw_text": text,
-                "status": "active"
+                "status": "active",
+                "user_id": current_user["sub"],
             }).execute()
             if insert_res.data and len(insert_res.data) > 0:
                 contract_id = insert_res.data[0].get("id")

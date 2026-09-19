@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from services.gemini_client import call_gemini
+from services.security import get_current_user
 
 router = APIRouter()
 
@@ -16,7 +17,7 @@ SYSTEM_PROMPT = (
 )
 
 @router.post("/timeline")
-async def get_timeline(req: TimelineRequest):
+async def get_timeline(req: TimelineRequest, current_user: dict = Depends(get_current_user)):
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Contract text is required")
     

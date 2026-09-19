@@ -89,9 +89,8 @@ export default function UploadZone() {
 
     try {
       // Use streaming for extract (slowest + most tokens)
-      const response = await fetch('/extract/stream', {
+      const response = await store.authedFetch('/extract/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: contractText,
           filename: fileName,
@@ -157,19 +156,16 @@ export default function UploadZone() {
       store.setProcessing(parallelMsg);
 
       const [obligRes, timelineRes, flagsRes] = await Promise.all([
-        fetch('/obligations', {
+        store.authedFetch('/obligations', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: contractText, contract_id: cid, ref_date: today }),
         }).then((r) => r.json()),
-        fetch('/timeline', {
+        store.authedFetch('/timeline', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: contractText, ref_date: today }),
         }).then((r) => r.json()),
-        fetch('/flags', {
+        store.authedFetch('/flags', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: contractText, contract_id: cid, ref_date: today }),
         }).then((r) => r.json()),
       ]);
@@ -183,14 +179,12 @@ export default function UploadZone() {
       store.setProcessing(briefingMsg);
 
       const [summaryRes, alertsRes] = await Promise.all([
-        fetch('/summary', {
+        store.authedFetch('/summary', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: contractText, ref_date: today }),
         }).then((r) => r.json()),
-        fetch(`/alerts?today=${today}`, {
+        store.authedFetch(`/alerts?today=${today}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: contractText }),
         }).then((r) => r.json()),
       ]);
@@ -225,7 +219,7 @@ export default function UploadZone() {
       formData.append('file', file);
 
       setUploadProgress(45);
-      const res = await fetch('/upload', {
+      const res = await store.authedFetch('/upload', {
         method: 'POST',
         body: formData,
       });
@@ -238,11 +232,12 @@ export default function UploadZone() {
       const data = await res.json();
       setUploadProgress(100);
 
-      // Trigger streaming AI pipeline
+      // Trigger streaming AI pipeline using the server-issued contract id so
+      // the analysis results persist against the correct (owned) contract row.
       await analyzeWithStream(
         data.text,
         file.name,
-        'c_' + Date.now(),
+        data.contract_id,
         { pages: data.pages || 1, wordCount: data.word_count || 0 }
       );
     } catch (err) {

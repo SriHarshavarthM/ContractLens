@@ -1,9 +1,10 @@
 import json
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 from services.gemini_client import call_gemini
+from services.security import get_current_user
 
 router = APIRouter()
 
@@ -23,7 +24,8 @@ class AlertsRequest(BaseModel):
 @router.get("/alerts")
 async def get_alerts(
     today: Optional[str] = Query(None, description="Current date in YYYY-MM-DD format"),
-    text: Optional[str] = Query(None)
+    text: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     GET variant kept for backwards compatibility — reads contract text from the `text` query param.
@@ -34,6 +36,7 @@ async def get_alerts(
 async def post_alerts(
     req: AlertsRequest,
     today: Optional[str] = Query(None, description="Current date in YYYY-MM-DD format"),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Compute proactive alerts for obligations/deadlines within 7, 14, or 30 days from reference date.

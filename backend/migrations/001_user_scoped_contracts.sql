@@ -1,0 +1,82 @@
+-- 001_user_scoped_contracts.sql
+-- Purpose: scope every contract (and its derived records) to the Supabase Auth
+-- user who uploaded it, and optionally enable Row Level Security.
+--
+-- IMPORTANT CAVEAT (read before applying):
+-- The backend currently uses ONE shared Supabase client authenticated with the
+-- public anon key, and performs per-user isolation in the API layer via the
+-- verified JWT's `sub` (user_id filter + ownership pre-checks). If you enable
+-- RLS below while the backend still talks to Supabase with the anon key alone,
+-- every request will appear as an unauthenticated (anon) database row and ALL
+-- row access will be blocked — breaking the app.
+--
+-- To safely use RLS, switch data access to a per-request Supabase client bound
+-- to the end user's access token (see the `get_data_client(user)` helper in
+-- services/supabase_client.py and the "Enabling RLS" section of the final
+-- report). Until then, apply ONLY the schema changes (user_id column + index);
+-- keep the RLS block commented out. API-layer ownership enforcement is active
+-- regardless.
+
+-- =========================================================
+-- 1) Schema: add user_id to contracts
+-- =========================================================
+alter table public.contracts
+    add column if not exists user_id uuid references auth.users (id) on delete cascade;
+
+create index if not exists idx_contracts_user_id
+    on public.contracts (user_id);
+
+-- =========================================================
+-- 2) Row Level Security (enable ONLY with per-user tokens)
+--    Uncomment when the backend uses get_data_client(user).
+-- =========================================================
+-- alter table public.contracts enable row level security;
+-- alter table public.contract_extractions enable row level security;
+-- alter table public.obligations enable row level security;
+-- alter table public.flags enable row level security;
+--
+-- drop policy if exists "contracts_select_own"    on public.contracts;
+-- drop policy if exists "contracts_insert_own"    on public.contracts;
+-- drop policy if exists "contracts_update_own"    on public.contracts;
+-- drop policy if exists "contracts_delete_own"    on public.contracts;
+--
+-- create policy "contracts_select_own" on public.contracts
+--     for select using (user_id = auth.uid());
+-- create policy "contracts_insert_own" on public.contracts
+--     for insert with check (user_id = auth.uid());
+-- create policy "contracts_update_own" on public.contracts
+--     for update using (user_id = auth.uid());
+-- create policy "contracts_delete_own" on public.contracts
+--     for delete using (user_id = auth.uid());
+--
+-- -- Child tables inherit access through their parent contract.
+-- drop policy if exists "extractions_via_parent" on public.contract_extractions;
+-- drop policy if exists "obligations_via_parent" on public.obligations;
+-- drop policy if exists "flags_via_parent"       on public.flags;
+--
+-- create policy "extractions_via_parent" on public.contract_extractions
+--     for all
+--     using (exists (
+--         select 1 from public.contracts c
+--         where c.id = contract_extractions.contract_id and c.user_id = auth.uid()));
+--
+-- create policy "obligations_via_parent" on public.obligations
+--     for all
+--     using (exists (
+--         select 1 from public.contracts c
+--         where c.id = obligations.contract_id and c.user_id = auth.uid()));
+--
+-- create policy "flags_via_parent" on public.flags
+--     for all
+--     using (exists (
+--         select 1 from public.contracts c
+--         where c.id = flags.contract_id and c.user_id = auth.uid()));
+
+-- =========================================================
+-- 3) Optional: backfill user_id for rows created before this
+--    migration (uploads made while the app was unauthenticated).
+--    Rows without an owner are NOT visible to any user until
+--    they are reassigned; the API layer also treats them as
+--    not-owned (404).
+-- =========================================================
+-- update public.contracts set user_id = NULL where user_id is null;

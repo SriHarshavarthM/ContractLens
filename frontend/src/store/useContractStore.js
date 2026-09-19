@@ -1,16 +1,24 @@
 import { create } from 'zustand';
+import {
+  supabase,
+  mapSupabaseUser,
+  getAccessToken,
+  signInWithEmail,
+  signUpWithEmail,
+  signOutUser,
+} from '../lib/supabase';
 
 const API_BASE = 'http://localhost:8000';
 
 export const useContractStore = create((set, get) => ({
   // Contracts state
-  contracts: [], // list of uploaded/loaded contracts
+  contracts: [],
   activeContractId: null,
   activeTab: 'upload', // 'upload', 'overview', 'obligations', 'timeline', 'flags', 'compare', 'qa', 'summary', 'alerts'
-  
+
   // Specific slots for Compare view
-  contractA: null, // { id, title, text, filename }
-  contractB: null, // { id, title, text, filename }
+  contractA: null,
+  contractB: null,
 
   // Current active contract intelligence data
   extractedData: null,
@@ -20,38 +28,194 @@ export const useContractStore = create((set, get) => ({
   summary: null,
   alerts: null,
   compareDiff: null,
-  
+
   // Loading & Processing states
   isAnalyzing: false,
-  analysisStep: '', // e.g. "Extracting metadata...", "Flagging risks..."
+  analysisStep: '',
   streamedTokens: '',
   isComparing: false,
   qaLoading: false,
-  qaHistory: [], // [{ id, question, answer, confidence, source_section, source_text, timestamp }]
+  qaHistory: [],
 
   // Settings & Configuration
   theme: localStorage.getItem('cl_theme') || 'dark',
   apiKeyConfigured: true,
   isKeyModalOpen: false,
 
-  // User & Authentication State
-  user: JSON.parse(localStorage.getItem('cl_user') || 'null') || {
-    id: 'usr_demo_01',
-    name: 'Panji Dwi',
-    email: 'demo@contractlens.ai',
-    role: 'Lead Legal Counsel & Contract Manager',
-    employee_id: '#EMP07',
-    avatar_initials: 'PD',
-  },
-  token: localStorage.getItem('cl_token') || 'cl_demo_token',
-  isAuthenticated: true,
+  // Authentication State (Supabase Auth)
+  user: null, // { id, email, name, role, avatar_initials, employee_id }
+  accessToken: null,
+  isAuthenticated: false,
+  isAuthInitializing: true, // true until the persisted Supabase session has been restored
   isAuthModalOpen: false,
   authModalMode: 'login', // 'login' | 'register'
+  authError: null,
+  authLoading: false,
 
   // Actions
   setActiveTab: (tab) => set({ activeTab: tab }),
   setKeyModalOpen: (open) => set({ isKeyModalOpen: open }),
   setAuthModal: (open, mode = 'login') => set({ isAuthModalOpen: open, authModalMode: mode }),
+
+  // ---------- Supabase Authentication ----------
+
+  // Restore a persisted session on app load.
+  restoreSession: async () => {
+    try {
+      if (!supabase) return;
+      const { data } = await supabase.auth.getSession();
+      const session = data?.session;
+      if (session?.user) {
+        set({
+          user: mapSupabaseUser(session.user),
+          accessToken: session.access_token,
+          isAuthenticated: true,
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to restore Supabase session:', e);
+    } finally {
+      set({ isAuthInitializing: false });
+    }
+  },
+
+  // Keep the store in sync with Supabase auth events (sign-in, sign-out, token refresh).
+  subscribeToAuth: () => {
+    if (!supabase) return () => {};
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user && session?.access_token) {
+        set({
+          user: mapSupabaseUser(session.user),
+          accessToken: session.access_token,
+          isAuthenticated: true,
+        });
+      } else {
+        set({
+          user: null,
+          accessToken: null,
+          isAuthenticated: false,
+          isAuthModalOpen: false,
+        });
+      }
+    });
+    return () => data.subscription.unsubscribe();
+  },
+
+  login: async (email, password) => {
+    if (!supabase) return { success: false, error: 'Supabase is not configured on the frontend. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.' };
+    set({ authLoading: true, authError: null });
+    try {
+      const { data, error } = await signInWithEmail(email, password);
+      if (error) {
+        set({ authLoading: false, authError: error.message });
+        return { success: false, error: error.message };
+      }
+      set({
+        user: mapSupabaseUser(data.user),
+        accessToken: data.session?.access_token || null,
+        isAuthenticated: true,
+        authLoading: false,
+        isAuthModalOpen: false,
+      });
+      return { success: true };
+    } catch (e) {
+      set({ authLoading: false, authError: e.message });
+      return { success: false, error: e.message };
+    }
+  },
+
+  register: async (email, password, name, role = 'Contract Analyst') => {
+    if (!supabase) return { success: false, error: 'Supabase is not configured on the frontend. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.' };
+    set({ authLoading: true, authError: null });
+    try {
+      const { data, error } = await signUpWithEmail({ email, password, name, role });
+      if (error) {
+        set({ authLoading: false, authError: error.message });
+        return { success: false, error: error.message };
+      }
+      // With email confirmation enabled, data.session is null and the user
+      // must click the confirmation link before they can sign in.
+      const session = data.session;
+      if (session?.user && session?.access_token) {
+        set({
+          user: mapSupabaseUser(session.user),
+          accessToken: session.access_token,
+          isAuthenticated: true,
+          authLoading: false,
+          isAuthModalOpen: false,
+        });
+        return { success: true, needsEmailConfirmation: false };
+      }
+      set({ authLoading: false });
+      return { success: true, needsEmailConfirmation: true };
+    } catch (e) {
+      set({ authLoading: false, authError: e.message });
+      return { success: false, error: e.message };
+    }
+  },
+
+  logout: async () => {
+    if (supabase) {
+      try {
+        await signOutUser();
+      } catch (e) {
+        console.warn('Sign-out error:', e);
+      }
+    }
+    set({
+      user: null,
+      accessToken: null,
+      isAuthenticated: false,
+      isAuthModalOpen: false,
+      contracts: [],
+      activeContractId: null,
+      extractedData: null,
+      obligations: [],
+      timeline: [],
+      flags: [],
+      summary: null,
+      alerts: null,
+      compareDiff: null,
+      qaHistory: [],
+      contractA: null,
+      contractB: null,
+      activeTab: 'upload',
+    });
+  },
+
+  clearAuthError: () => set({ authError: null }),
+  markSessionExpired: async () => {
+    if (!get().isAuthenticated) return;
+    const shouldSignOut = !!supabase;
+    set({
+      user: null,
+      accessToken: null,
+      isAuthenticated: false,
+      isAuthModalOpen: false,
+      authModalMode: 'login',
+      authError: 'Your session has expired. Please sign in again.',
+      contracts: [],
+      activeContractId: null,
+      contractA: null,
+      contractB: null,
+      extractedData: null,
+      obligations: [],
+      timeline: [],
+      flags: [],
+      summary: null,
+      alerts: null,
+      compareDiff: null,
+      qaHistory: [],
+      activeTab: 'upload',
+    });
+    if (shouldSignOut) {
+      try {
+        await signOutUser();
+      } catch (e) {
+        console.warn('Sign-out after session expiry failed:', e);
+      }
+    }
+  },
 
   // Streaming & Progressive Loading Setters
   setProcessing: (step) => set({ isAnalyzing: true, analysisStep: step }),
@@ -93,109 +257,6 @@ export const useContractStore = create((set, get) => ({
     });
   },
 
-  loginDemo: async () => {
-    try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'demo@contractlens.ai', password: 'demo123' })
-      });
-      const data = await res.json();
-      if (data.success) {
-        localStorage.setItem('cl_token', data.token);
-        localStorage.setItem('cl_user', JSON.stringify(data.user));
-        set({ user: data.user, token: data.token, isAuthenticated: true, isAuthModalOpen: false });
-        return { success: true };
-      }
-    } catch (e) {
-      // Offline fallback
-      const demo = {
-        id: 'usr_demo_01',
-        name: 'Panji Dwi',
-        email: 'demo@contractlens.ai',
-        role: 'Lead Legal Counsel & Contract Manager',
-        employee_id: '#EMP07',
-        avatar_initials: 'PD',
-      };
-      localStorage.setItem('cl_token', 'cl_demo_token');
-      localStorage.setItem('cl_user', JSON.stringify(demo));
-      set({ user: demo, token: 'cl_demo_token', isAuthenticated: true, isAuthModalOpen: false });
-      return { success: true };
-    }
-  },
-
-  login: async (email, password) => {
-    try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.detail || 'Login failed' };
-      }
-      localStorage.setItem('cl_token', data.token);
-      localStorage.setItem('cl_user', JSON.stringify(data.user));
-      set({ user: data.user, token: data.token, isAuthenticated: true, isAuthModalOpen: false });
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: e.message || 'Connection failed' };
-    }
-  },
-
-  register: async (name, email, password) => {
-    try {
-      const res = await fetch(`${API_BASE}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.detail || 'Registration failed' };
-      }
-      localStorage.setItem('cl_token', data.token);
-      localStorage.setItem('cl_user', JSON.stringify(data.user));
-      set({ user: data.user, token: data.token, isAuthenticated: true, isAuthModalOpen: false });
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: e.message || 'Connection failed' };
-    }
-  },
-
-  logout: () => {
-    localStorage.removeItem('cl_token');
-    localStorage.removeItem('cl_user');
-    set({
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      isAuthModalOpen: true,
-      authModalMode: 'login'
-    });
-  },
-
-  toggleTheme: () => {
-    const next = get().theme === 'dark' ? 'light' : 'dark';
-    localStorage.setItem('cl_theme', next);
-    if (next === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    set({ theme: next });
-  },
-  setTheme: (t) => {
-    localStorage.setItem('cl_theme', t);
-    if (t === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    set({ theme: t });
-  },
-
   // Set active contract and populate its data
   setActiveContract: (contract) => {
     set({
@@ -218,7 +279,7 @@ export const useContractStore = create((set, get) => ({
   getHealthScore: () => {
     const { flags } = get();
     if (!flags || flags.length === 0) return 95;
-    
+
     let high = 0;
     let med = 0;
     let low = 0;
@@ -243,9 +304,8 @@ export const useContractStore = create((set, get) => ({
       // Stream extract (slowest + most tokens) with live token tracking
       const extractStreamPromise = (async () => {
         try {
-          const res = await fetch(`${API_BASE}/extract/stream`, {
+          const res = await get().authedFetch(`${API_BASE}/extract/stream`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               text: contractObj.text,
               filename: contractObj.filename || 'contract.pdf',
@@ -280,9 +340,8 @@ export const useContractStore = create((set, get) => ({
           return resultData || {};
         } catch (e) {
           // Fallback to regular extract if stream had error
-          const res = await fetch(`${API_BASE}/extract`, {
+          const res = await get().authedFetch(`${API_BASE}/extract`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               text: contractObj.text,
               filename: contractObj.filename || 'contract.pdf',
@@ -297,14 +356,12 @@ export const useContractStore = create((set, get) => ({
       // Batch 1 (Parallel): Core extraction, obligations, and risk flags
       const [extractedData, obData, flagData] = await Promise.all([
         extractStreamPromise,
-        fetch(`${API_BASE}/obligations`, {
+        get().authedFetch(`${API_BASE}/obligations`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: contractObj.text, ref_date: today, contract_id: contractId }),
         }).then((r) => r.json()),
-        fetch(`${API_BASE}/flags`, {
+        get().authedFetch(`${API_BASE}/flags`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: contractObj.text, ref_date: today, contract_id: contractId }),
         }).then((r) => r.json()),
       ]);
@@ -333,25 +390,22 @@ export const useContractStore = create((set, get) => ({
         extractedData,
         obligations,
         flags,
-        isAnalyzing: false, // unblock modal immediately
+        isAnalyzing: false,
         activeTab: autoNavigate ? 'overview' : get().activeTab,
       });
 
       // Batch 2 (Background): Timeline, Executive Summary, Proactive Alerts
       Promise.all([
-        fetch(`${API_BASE}/timeline`, {
+        get().authedFetch(`${API_BASE}/timeline`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: contractObj.text, ref_date: today }),
         }).then(r => r.json()),
-        fetch(`${API_BASE}/summary`, {
+        get().authedFetch(`${API_BASE}/summary`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: contractObj.text, ref_date: today }),
         }).then(r => r.json()),
-        fetch(`${API_BASE}/alerts?today=${today}`, {
+        get().authedFetch(`${API_BASE}/alerts?today=${today}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: contractObj.text }),
         }).then(r => r.json()),
       ]).then(([tlData, summary, alerts]) => {
@@ -383,10 +437,31 @@ export const useContractStore = create((set, get) => ({
     }
   },
 
+  authHeaders: async () => {
+    const base = { 'Content-Type': 'application/json' };
+    const token = await getAccessToken();
+    if (token) return { ...base, Authorization: `Bearer ${token}` };
+    return base;
+  },
+
+  // Shared authed fetch: adds the verified user's bearer token, preserves
+  // multipart uploads (Content-Type is left to the browser for FormData
+  // bodies), and treats HTTP 401 as an expired/rejected session.
+  authedFetch: async (resource, options = {}) => {
+    const auth = await get().authHeaders();
+    const isMultipart = options.body instanceof FormData;
+    const headers = { ...(options.headers || {}) };
+    if (auth.Authorization) headers.Authorization = auth.Authorization;
+    if (!isMultipart && auth['Content-Type']) headers['Content-Type'] = auth['Content-Type'];
+    const res = await fetch(resource, { ...options, headers });
+    if (res.status === 401) get().markSessionExpired();
+    return res;
+  },
+
   // Supabase Contract Repository Persistence Methods
   fetchContracts: async () => {
     try {
-      const res = await fetch(`${API_BASE}/contracts`);
+      const res = await get().authedFetch(`${API_BASE}/contracts`);
       if (!res.ok) return;
       const remoteList = await res.json();
       if (Array.isArray(remoteList) && remoteList.length > 0) {
@@ -426,7 +501,7 @@ export const useContractStore = create((set, get) => ({
 
   loadContractById: async (contractId) => {
     try {
-      const res = await fetch(`${API_BASE}/contracts/${contractId}`);
+      const res = await get().authedFetch(`${API_BASE}/contracts/${contractId}`);
       if (!res.ok) {
         const found = get().contracts.find(c => c.id === contractId);
         if (found) get().setActiveContract(found);
@@ -465,7 +540,7 @@ export const useContractStore = create((set, get) => ({
 
   deleteContract: async (contractId) => {
     try {
-      await fetch(`${API_BASE}/contracts/${contractId}`, { method: 'DELETE' });
+      await get().authedFetch(`${API_BASE}/contracts/${contractId}`, { method: 'DELETE' });
     } catch (e) {
       console.warn('Error deleting on backend:', e);
     }
@@ -490,7 +565,6 @@ export const useContractStore = create((set, get) => ({
     }
   },
 
-
   // Perform Comparison between contractA and contractB
   runComparison: async () => {
     const { contractA, contractB } = get();
@@ -498,9 +572,8 @@ export const useContractStore = create((set, get) => ({
 
     set({ isComparing: true });
     try {
-      const res = await fetch(`${API_BASE}/compare`, {
+      const res = await get().authedFetch(`${API_BASE}/compare`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contract_a: contractA.text,
           contract_b: contractB.text,
@@ -529,9 +602,8 @@ export const useContractStore = create((set, get) => ({
         content: h.question,
       }));
 
-      const res = await fetch(`${API_BASE}/qa`, {
+      const res = await get().authedFetch(`${API_BASE}/qa`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contract_text: activeContract.text,
           question,
@@ -576,9 +648,8 @@ export const useContractStore = create((set, get) => ({
   // Save API key
   saveApiKey: async (key) => {
     try {
-      const res = await fetch(`${API_BASE}/config/key`, {
+      const res = await get().authedFetch(`${API_BASE}/config/key`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ api_key: key }),
       });
       const data = await res.json();
