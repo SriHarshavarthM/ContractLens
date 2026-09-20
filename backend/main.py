@@ -89,6 +89,10 @@ def save_extraction_supabase(payload: dict, data: dict, current_user: dict):
         try:
             ext_payload = {
                 "contract_id": contract_id,
+                "document_type": str(data.get("document_type", "") or ""),
+                "title": str(data.get("title", "") or ""),
+                "governing_law": str(data.get("governing_law", "") or ""),
+                "financial_value": str(data.get("financial_value", "") or ""),
                 "parties": data.get("parties"),
                 "effective_date": sanitize_extract_date(data.get("effective_date")),
                 "expiration_date": sanitize_extract_date(data.get("expiration_date")),
@@ -96,10 +100,19 @@ def save_extraction_supabase(payload: dict, data: dict, current_user: dict):
                 "payment_terms": str(data.get("payment_terms", "") or ""),
                 "termination_conditions": str(data.get("termination_conditions", "") or ""),
                 "service_obligations": str(data.get("service_obligations", "") or ""),
+                "important_dates": data.get("important_dates", []),
                 "source_sections": data.get("source_sections"),
                 "health_score": 78
             }
+            # Replace any previous extraction so re-analysis never mixes stale
+            # fragments with fresh results.
+            client.table("contract_extractions").delete().eq("contract_id", contract_id).execute()
             client.table("contract_extractions").insert(ext_payload).execute()
+            doc_type = str(data.get("document_type", "") or "")
+            if doc_type:
+                client.table("contracts").update({"document_type": doc_type}).eq(
+                    "id", contract_id
+                ).eq("user_id", current_user["sub"]).execute()
         except Exception as e:
             print(f"[extract/stream] Supabase save error: {e}")
 
@@ -121,8 +134,14 @@ def save_obligations_supabase(payload: dict, data: dict, current_user: dict):
                     "deadline": sanitize_oblig_date(ob.get("deadline")),
                     "urgency": urgency,
                     "source_clause": str(ob.get("source_clause", "")),
+                    "obligation_type": str(ob.get("obligation_type", "") or ""),
+                    "frequency": str(ob.get("frequency", "") or ""),
                     "is_dismissed": False
                 })
+            if records:
+                # Replace any previous obligations so re-analysis never mixes
+                # stale results with fresh ones.
+                client.table("obligations").delete().eq("contract_id", contract_id).execute()
             client.table("obligations").insert(records).execute()
         except Exception as e:
             print(f"[obligations/stream] Supabase save error: {e}")

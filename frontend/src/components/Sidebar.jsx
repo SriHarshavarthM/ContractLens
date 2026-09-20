@@ -12,15 +12,12 @@ import {
   Upload,
   ChevronLeft,
   ChevronRight,
-  ShieldAlert,
   FolderOpen,
   Plus,
   Trash2,
-  CheckCircle2,
   Sun,
   Moon,
   LogOut,
-  User,
   Layers
 } from 'lucide-react';
 
@@ -47,9 +44,18 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
   }, []);
 
   const activeContract = contracts.find((c) => c.id === activeContractId) || contracts[0];
+  const flagsCount = activeContract?.flags?.length || 0;
   const healthScore = getHealthScore();
+  const partyName = activeContract?.extractedData?.parties?.[0]?.name || '';
 
   const navSections = [
+    {
+      title: 'WORKSPACE',
+      items: [
+        { id: 'library', label: 'Contract Library', icon: FolderOpen, desc: 'All saved agreements' },
+        { id: 'upload', label: 'Upload Contract', icon: Upload, desc: 'Add a new agreement' },
+      ]
+    },
     {
       title: 'INTELLIGENCE',
       items: [
@@ -70,12 +76,13 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
         },
         {
           id: 'flags',
-          label: 'Clause Risk Audit',
+          label: 'Risk Review',
           icon: AlertTriangle,
           count: activeContract?.flags?.length,
           alert: (activeContract?.flags?.length || 0) > 0,
           desc: 'Non-Standard Language'
         },
+        { id: 'clauses', label: 'Clause Explorer', icon: Layers, desc: 'Verbatim Excerpts' },
       ]
     },
     {
@@ -141,16 +148,26 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
               <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
                 Active Document
               </span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800">
-                Score: {healthScore}
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                flagsCount > 0
+                  ? healthScore >= 70
+                    ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
+                    : healthScore >= 45
+                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800'
+                    : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700'
+              }`}>
+                {flagsCount > 0 ? `Score: ${healthScore}` : 'Pending'}
               </span>
             </div>
             <div className="font-bold text-xs text-zinc-900 dark:text-white truncate">
-              {activeContract.title || activeContract.filename}
+              {activeContract.title || activeContract.filename || 'Untitled document'}
             </div>
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-              {activeContract.extractedData?.parties?.[0]?.name || 'Commercial Contract'}
-            </div>
+            {partyName && (
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                {partyName}
+              </div>
+            )}
           </div>
         )}
 

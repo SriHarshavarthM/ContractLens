@@ -50,7 +50,7 @@ For quick evaluation, click **"Sign In as Demo User (1-Click)"** on the login mo
 
 - **Frontend**: React 19, Vite, TailwindCSS, Lucide Icons, Zustand
 - **Backend**: FastAPI (Python), PyMuPDF (`fitz`), Pydantic
-- **AI Engine**: Google Gemini API (`gemini-flash-latest` / `gemini-3.6-flash`) via `google-generativeai`
+- **AI Engine**: Google Gemini API (default model `gemini-3.6-flash`, configurable via `GEMINI_MODEL` / `GEMINI_FALLBACK_MODEL`) via `google-generativeai`
 
 ---
 
@@ -103,8 +103,12 @@ Visit **http://localhost:5173** in your browser.
 In `backend/.env`:
 ```env
 GEMINI_API_KEY=your_api_key_here
+# Optional model selection (defaults to the current gemini-3.6-flash):
+# GEMINI_MODEL=gemini-3.6-flash
+# GEMINI_FALLBACK_MODEL=gemini-3.6-flash
 ```
 You can also configure or update the Gemini API key directly from the web interface using the top navigation bar settings button without restarting the servers.
+> Note: deprecated model ids (`gemini-2.5-pro`,`gemini-2.5-flash`, etc.) return `404 ... no longer available` for new accounts — always use a current id like `gemini-3.6-flash`.
 
 ---
 

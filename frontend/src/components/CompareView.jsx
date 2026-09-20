@@ -371,7 +371,7 @@ export default function CompareView() {
 
       <div className="flex items-center justify-end gap-1.5 text-[11px] text-slate-500 pr-2">
         <Sparkles className="w-3 h-3 text-indigo-400" />
-        <span>Powered by Gemini 1.5 Pro</span>
+        <span>Document-grounded comparison</span>
       </div>
     </div>
   );

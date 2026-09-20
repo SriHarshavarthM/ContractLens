@@ -7,7 +7,7 @@ from services.security import get_current_user
 
 router = APIRouter()
 
-def persist_contract(client, current_user: dict, name: str, text: str):
+def persist_contract(client, current_user: dict, name: str, text: str, metadata: dict = None):
     """Insert the contract row scoped to the verified user and return its DB id.
 
     Never falls back to a client-supplied/random id: persistence must succeed
@@ -19,12 +19,21 @@ def persist_contract(client, current_user: dict, name: str, text: str):
             status_code=503,
             detail="Contract persistence unavailable: Supabase is not configured on the backend.",
         )
+    meta = metadata or {}
     try:
         insert_res = client.table("contracts").insert({
             "name": name,
             "raw_text": text,
             "status": "active",
             "user_id": current_user["sub"],
+            # Document metadata so list/history views never fabricate it.
+            "file_type": meta.get("file_type", ""),
+            "file_size_bytes": meta.get("file_size_bytes"),
+            "pages": meta.get("pages"),
+            "word_count": meta.get("word_count"),
+            "analysis_status": "pending",
+            "analyzed_at": None,
+            "analysis_error": None,
         }).execute()
     except Exception as e:
         print(f"[upload.py] Supabase save error: {e}")
@@ -65,6 +74,7 @@ async def upload_file(
     if len(content) == 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
 
+    file_type = filename.rsplit(".", 1)[-1].lower() if "." in filename else "txt"
     extracted_text = ""
     page_count = 1
 
@@ -90,11 +100,18 @@ async def upload_file(
     words = len(extracted_text.split()) if extracted_text else 0
 
     client = data_client(current_user)
-    contract_id = persist_contract(client, current_user, filename, extracted_text)
+    contract_id = persist_contract(client, current_user, filename, extracted_text, {
+        "file_type": file_type,
+        "file_size_bytes": len(content),
+        "pages": page_count,
+        "word_count": words,
+    })
 
     return {
         "contract_id": contract_id,
         "filename": filename,
+        "file_type": file_type,
+        "file_size_bytes": len(content),
         "text": extracted_text,
         "pages": page_count,
         "word_count": words,
@@ -111,7 +128,12 @@ async def upload_raw_text(
     words = len(text.split()) if text else 0
 
     client = data_client(current_user)
-    contract_id = persist_contract(client, current_user, data.filename, text)
+    contract_id = persist_contract(client, current_user, data.filename, text, {
+        "file_type": data.filename.rsplit(".", 1)[-1].lower() if "." in data.filename else "txt",
+        "file_size_bytes": len(text.encode("utf-8")),
+        "pages": max(1, words // 350),
+        "word_count": words,
+    })
 
     return {
         "contract_id": contract_id,
