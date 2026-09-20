@@ -1,3 +1,4 @@
+from datetime import date
 import re
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -14,16 +15,56 @@ class ObligationsRequest(BaseModel):
     ref_date: Optional[str] = None
     contract_id: Optional[str] = None
 
-SYSTEM_PROMPT = (
-    "You are a contract obligations analyst. Identify every obligation for every party. "
-    "Return ONLY raw JSON: { obligations: [{party, description, deadline, frequency, "
-    "obligation_type, urgency: 'Critical|High|Medium|Low', source_clause}] }. "
-    "obligation_type is one of Payment, Performance, Reporting, Notice, Cooperation, Compliance, Other. "
-    "frequency is one of One-time, Daily, Weekly, Monthly, Quarterly, Annual, Upon-request or '' for one-off actions. "
-    "Urgency rules — Critical: <7 days or non-negotiable legal consequence. High: <30 days or financial penalty. "
-    "Medium: standard delivery. Low: informational. "
-    "Return ONLY a raw JSON object. No markdown. No explanation. No code fences."
-)
+SYSTEM_PROMPT = """
+You are a legal obligations analyst specializing in contract compliance and deadline tracking.
+
+Your task: Identify and extract EVERY obligation, commitment, and duty that each party
+must fulfill under this contract. Be exhaustive — miss nothing.
+
+An obligation is any action, deliverable, payment, report, notice, or restriction that
+a party is REQUIRED to do or refrain from doing. Look for words like:
+"shall", "must", "will", "agrees to", "is required to", "is obligated to",
+"is responsible for", "covenants to", "undertakes to", "warrants that".
+
+For EACH obligation found, extract:
+- party: The exact party name who bears this obligation
+- description: Clear, specific description of what they must do (not vague — be specific)
+- deadline: The specific date or deadline. If relative ("within 30 days of invoice"),
+  calculate from today's date (use {today}) and provide the actual date
+- deadline_type: "fixed" (specific date) | "relative" (calculated from an event) |
+  "recurring" (repeats on schedule) | "conditional" (triggered by an event)
+- recurrence: If recurring, state frequency (monthly/quarterly/annually/etc.)
+- urgency: Assign based on these STRICT rules:
+    "Critical" = deadline within 7 days OR non-compliance causes immediate contract termination
+    "High"     = deadline within 30 days OR non-compliance causes financial penalty
+    "Medium"   = deadline within 90 days OR standard contractual delivery obligation
+    "Low"      = informational, best-effort, or deadline beyond 90 days
+- consequence: What happens if this obligation is NOT met (penalty, termination, interest, etc.)
+- source_clause: The exact section number AND full clause text this obligation comes from
+
+Return ONLY a raw JSON object:
+{
+  "obligations": [
+    {
+      "party": "",
+      "description": "",
+      "deadline": "YYYY-MM-DD",
+      "deadline_type": "fixed|relative|recurring|conditional",
+      "recurrence": "",
+      "urgency": "Critical|High|Medium|Low",
+      "consequence": "",
+      "source_clause": ""
+    }
+  ]
+}
+
+STRICT RULES:
+- Return ONLY the JSON. No markdown. No explanation. Start with { end with }
+- Find ALL obligations — a typical enterprise contract has 10-25 obligations minimum
+- Never group multiple obligations into one — each obligation gets its own object
+- If no deadline is stated, set deadline to null but still include the obligation
+- Today's date for relative deadline calculation: {today}
+"""
 
 def sanitize_date(d):
     if not d:
@@ -36,8 +77,11 @@ async def get_obligations(req: ObligationsRequest, current_user: dict = Depends(
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Contract text is required")
 
+    today = req.ref_date or date.today().isoformat()
+    prompt = SYSTEM_PROMPT.replace("{today}", today)
+
     try:
-        result = call_gemini(SYSTEM_PROMPT, req.text)
+        result = call_gemini(prompt, req.text)
     except GeminiRequestError as e:
         raise HTTPException(status_code=502, detail=str(e))
     obligations_list = result.get("obligations", [])

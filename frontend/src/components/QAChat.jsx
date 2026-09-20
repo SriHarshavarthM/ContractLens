@@ -157,8 +157,45 @@ export default function QAChat() {
                     {item.answer}
                   </p>
 
-                  {/* Ground Truth Citation Badge */}
-                  {item.source_section && (
+                  {/* Legal Caveat */}
+                  {item.caveat && (
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                      <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold">Legal Caveat: </span>
+                        <span>{item.caveat}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ground Truth Citations */}
+                  {item.sources && item.sources.length > 0 ? (
+                    <div className="space-y-2 pt-1">
+                      <div className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Info className="w-3.5 h-3.5 text-brand-indigo" />
+                        <span>Ground Truth Citations ({item.sources.length})</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2">
+                        {item.sources.map((src, sIdx) => (
+                          <div key={sIdx} className="p-3 rounded-xl bg-white dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] space-y-1">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-brand-indigo">
+                              <span>{src.section || `Citation ${sIdx + 1}`}</span>
+                              {src.relevance && (
+                                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-normal">
+                                  {src.relevance}
+                                </span>
+                              )}
+                            </div>
+                            {src.clause_text && (
+                              <p className="text-[11px] font-mono text-zinc-700 dark:text-zinc-300 italic leading-relaxed">
+                                &quot;{src.clause_text}&quot;
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : item.source_section ? (
                     <div className="p-3 rounded-xl bg-white dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A]">
                       <div className="flex items-center gap-1.5 text-[11px] font-bold text-brand-indigo mb-1">
                         <Info className="w-3.5 h-3.5" />
@@ -170,7 +207,7 @@ export default function QAChat() {
                         </p>
                       )}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>

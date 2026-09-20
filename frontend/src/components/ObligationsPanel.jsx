@@ -162,17 +162,31 @@ export default function ObligationsPanel() {
                         </span>
 
                         <span className="text-xs font-bold text-zinc-900 dark:text-white">
-                          {ob.type || 'Operational Deliverable'}
+                          {ob.type || ob.obligation_type || 'Operational Deliverable'}
                         </span>
+
+                        {ob.deadline_type && (
+                          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                            {ob.deadline_type}
+                          </span>
+                        )}
                       </div>
 
-                      {/* Deadline Tag */}
-                      {ob.deadline && (
-                        <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-                          <Calendar className="w-3.5 h-3.5 text-brand-indigo" />
-                          <span>Deadline: {ob.deadline}</span>
-                        </div>
-                      )}
+                      {/* Deadline & Recurrence Tags */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {(ob.recurrence || ob.frequency) && (
+                          <div className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 font-medium">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Recurrence: {ob.recurrence || ob.frequency}</span>
+                          </div>
+                        )}
+                        {ob.deadline && (
+                          <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                            <Calendar className="w-3.5 h-3.5 text-brand-indigo" />
+                            <span>Deadline: {ob.deadline}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Description */}
@@ -180,13 +194,13 @@ export default function ObligationsPanel() {
                       {ob.description}
                     </p>
 
-                    {/* Penalty Notice */}
-                    {ob.penalty && (
+                    {/* Consequence of Breach / Penalty Notice */}
+                    {(ob.consequence || ob.penalty) && (
                       <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300">
                         <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                         <div>
-                          <strong className="font-bold">Penalty / Breach Risk: </strong>
-                          <span>{ob.penalty}</span>
+                          <strong className="font-bold">Breach Consequence / Legal Impact: </strong>
+                          <span>{ob.consequence || ob.penalty}</span>
                         </div>
                       </div>
                     )}

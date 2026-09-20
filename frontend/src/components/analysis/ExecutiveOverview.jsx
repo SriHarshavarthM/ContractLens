@@ -260,9 +260,10 @@ export default function ExecutiveOverview() {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 border-t border-zinc-100 dark:border-zinc-800/70 pt-5">
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-4 border-t border-zinc-100 dark:border-zinc-800/70 pt-5">
           <FieldRow label="Governing law" value={extractedData.governing_law} />
           <FieldRow label="Financial value" value={extractedData.financial_value} />
+          <FieldRow label="Liability cap" value={extractedData.liability_cap} />
           <FieldRow
             label="Effective date"
             value={extractedData.effective_date ? formatDateShort(extractedData.effective_date) : extractedData.effective_date || null}
@@ -290,10 +291,26 @@ export default function ExecutiveOverview() {
               <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">{summary.parties_summary}</p>
             </div>
           ) : null}
-          {summary?.financial_terms ? (
+          {(summary?.what_we_get || summary?.what_we_owe) && (
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {summary.what_we_get && (
+                <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40">
+                  <span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 block mb-1">WHAT WE GET</span>
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">{summary.what_we_get}</p>
+                </div>
+              )}
+              {summary.what_we_owe && (
+                <div className="p-3 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/40">
+                  <span className="text-[10px] font-mono font-bold text-brand-indigo dark:text-indigo-400 block mb-1">WHAT WE OWE</span>
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">{summary.what_we_owe}</p>
+                </div>
+              )}
+            </div>
+          )}
+          {(summary?.financial_summary || summary?.financial_terms) ? (
             <div className="mt-4">
               <span className="text-[11px] text-zinc-400 dark:text-zinc-500 block font-medium mb-1.5">Financial terms</span>
-              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">{summary.financial_terms}</p>
+              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">{summary.financial_summary || summary.financial_terms}</p>
             </div>
           ) : null}
           {(summary?.key_commitments || []).length > 0 && (

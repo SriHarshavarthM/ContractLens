@@ -125,8 +125,14 @@ export default function ObligationsWorkspace() {
                     <div className="flex items-center gap-2 flex-wrap mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
                       {o.party ? <span className="font-semibold text-zinc-500 dark:text-zinc-400">{o.party}</span> : null}
                       {o.obligation_type ? <Badge tone="indigo">{o.obligation_type}</Badge> : null}
-                      {o.frequency ? <Badge tone="zinc">{o.frequency}</Badge> : null}
+                      {o.deadline_type ? <Badge tone="zinc">{o.deadline_type}</Badge> : null}
+                      {(o.recurrence || o.frequency) ? <Badge tone="indigo">Repeats: {o.recurrence || o.frequency}</Badge> : null}
                     </div>
+                    {(o.consequence || o.penalty) && (
+                      <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400 font-medium">
+                        <strong className="font-semibold">Breach Consequence:</strong> {o.consequence || o.penalty}
+                      </p>
+                    )}
                     {o.source_clause && (
                       <p className="mt-1.5 text-[11px] italic text-zinc-400 dark:text-zinc-500 truncate">「{o.source_clause}」</p>
                     )}

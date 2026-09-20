@@ -14,7 +14,7 @@ Every route that calls the Gemini client routes its result through
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -46,21 +46,21 @@ def detect_prompt_type(system_prompt: str) -> str:
     classified correctly.
     """
     p = (system_prompt or "").lower()
-    if "contract intelligence engine" in p or ("parties" in p and "source_sections" in p):
+    if "senior contract analyst" in p or "contract intelligence engine" in p or ("parties" in p and "source_sections" in p):
         return EXTRACT
-    if "q&a" in p or ("question" in p and "answer" in p and "source_section" in p):
+    if "q&a" in p or "qa" in p or ("question" in p and "answer" in p):
         return QA
     if ("contract" in p and "compar" in p) or "contract_a" in p:
         return COMPARE
     if "alerts engine" in p or ("alerts" in p and "deadline" in p):
         return ALERTS
-    if "executive" in p or "summar" in p or "headline" in p:
+    if "business contract summarizer" in p or "executive" in p or "summar" in p or "headline" in p:
         return SUMMARY
-    if "timeline" in p or "chronological" in p:
+    if "timeline specialist" in p or "timeline" in p or "chronological" in p:
         return TIMELINE
-    if "risk analyst" in p or ("risk" in p and "clause" in p):
+    if "senior contract risk attorney" in p or "risk audit" in p or "risk analyst" in p or ("risk" in p and "clause" in p):
         return FLAGS
-    if "obligation" in p:
+    if "legal obligations analyst" in p or "obligation" in p:
         return OBLIGATIONS
     if "risk" in p or "flag" in p:
         return FLAGS
@@ -79,6 +79,7 @@ class LenientModel(BaseModel):
 class ContractParty(LenientModel):
     name: str = Field(default="")
     role: str = Field(default="")
+    shorthand: Optional[str] = Field(default="")
 
 
 class ContractExtraction(LenientModel):
@@ -87,12 +88,14 @@ class ContractExtraction(LenientModel):
     governing_law: str = Field(default="")
     financial_value: str = Field(default="")
     parties: List[ContractParty] = Field(default_factory=list)
-    effective_date: str = Field(default="")
-    expiration_date: str = Field(default="")
-    renewal_terms: str = Field(default="")
-    payment_terms: str = Field(default="")
-    termination_conditions: str = Field(default="")
-    service_obligations: str = Field(default="")
+    effective_date: Optional[str] = Field(default="")
+    expiration_date: Optional[str] = Field(default="")
+    renewal_terms: Optional[str] = Field(default="")
+    payment_terms: Optional[str] = Field(default="")
+    termination_conditions: Optional[str] = Field(default="")
+    service_obligations: Optional[str] = Field(default="")
+    liability_cap: Optional[str] = Field(default="")
+    confidence: Optional[Any] = Field(default="High")
     important_dates: List[Dict[str, Any]] = Field(default_factory=list)
     source_sections: Dict[str, Any] = Field(default_factory=dict)
     missing_fields: List[str] = Field(default_factory=list)
@@ -101,12 +104,16 @@ class ContractExtraction(LenientModel):
 class ContractObligation(LenientModel):
     party: str = Field(default="")
     description: str = Field(default="")
-    deadline: str = Field(default="")
-    frequency: str = Field(default="")
-    obligation_type: str = Field(default="")
-    due_date_condition: str = Field(default="")
+    deadline: Optional[str] = Field(default="")
+    deadline_type: Optional[str] = Field(default="")
+    recurrence: Optional[str] = Field(default="")
     urgency: str = Field(default="Medium")
+    consequence: Optional[str] = Field(default="")
     source_clause: str = Field(default="")
+    frequency: Optional[str] = Field(default="")
+    obligation_type: Optional[str] = Field(default="")
+    due_date_condition: Optional[str] = Field(default="")
+    penalty: Optional[str] = Field(default="")
 
 
 class ObligationsResult(LenientModel):
@@ -114,14 +121,17 @@ class ObligationsResult(LenientModel):
 
 
 class ContractFlag(LenientModel):
-    title: str = Field(default="")
+    title: Optional[str] = Field(default="")
     clause_text: str = Field(default="")
+    section_reference: str = Field(default="")
+    flag_type: Optional[str] = Field(default="")
     reason: str = Field(default="")
     severity: str = Field(default="Medium")
-    section_reference: str = Field(default="")
-    page_reference: str = Field(default="")
-    business_impact: str = Field(default="")
-    review_consideration: str = Field(default="")
+    affected_party: Optional[str] = Field(default="")
+    suggested_revision: Optional[str] = Field(default="")
+    page_reference: Optional[str] = Field(default="")
+    business_impact: Optional[str] = Field(default="")
+    review_consideration: Optional[str] = Field(default="")
 
 
 class FlagsResult(LenientModel):
@@ -134,8 +144,10 @@ class TimelineEvent(LenientModel):
     type: str = Field(default="deadline")
     party: str = Field(default="")
     description: str = Field(default="")
+    days_from_today: Optional[int] = Field(default=0)
+    urgency: Optional[str] = Field(default="Medium")
     source_clause: str = Field(default="")
-    page_reference: str = Field(default="")
+    page_reference: Optional[str] = Field(default="")
 
 
 class TimelineResult(LenientModel):
@@ -144,13 +156,18 @@ class TimelineResult(LenientModel):
 
 class SummaryResult(LenientModel):
     headline: str = Field(default="")
-    overview: str = Field(default="")
+    overview: Optional[str] = Field(default="")
     parties_summary: str = Field(default="")
+    what_we_get: Optional[str] = Field(default="")
+    what_we_owe: Optional[str] = Field(default="")
     key_commitments: List[str] = Field(default_factory=list)
     critical_dates: List[str] = Field(default_factory=list)
-    financial_terms: str = Field(default="")
+    financial_summary: Optional[str] = Field(default="")
+    financial_terms: Optional[str] = Field(default="")
+    top_risks: List[str] = Field(default_factory=list)
     risk_highlights: List[str] = Field(default_factory=list)
     recommended_actions: List[str] = Field(default_factory=list)
+    health_score: Optional[int] = Field(default=0)
 
 
 class AlertItem(LenientModel):
@@ -182,8 +199,10 @@ class CompareResult(LenientModel):
 class QAResult(LenientModel):
     answer: str = Field(default="")
     confidence: str = Field(default="High")
-    source_section: str = Field(default="")
-    source_text: str = Field(default="")
+    sources: List[Dict[str, Any]] = Field(default_factory=list)
+    caveat: Optional[str] = Field(default=None)
+    source_section: Optional[str] = Field(default="")
+    source_text: Optional[str] = Field(default="")
 
 
 SCHEMAS: Dict[str, type[BaseModel]] = {

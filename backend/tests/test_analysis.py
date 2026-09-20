@@ -119,10 +119,10 @@ def test_analysis_persists_and_restores_to_owner(api, monkeypatch, fake_supabase
             return '{"flags": [{"clause_text": "Liability cap", "reason": "Low cap", "severity": "High", "section_reference": "S9.1"}]}'
         if "alerts engine" in prompt:
             return '{"alerts": [{"obligation": "Pay", "deadline": "2026-10-02", "days_remaining": 13, "urgency": "High", "party": "Acme", "source_clause": "S5.1"}]}'
-        if "obligation" in prompt:
-            return '{"obligations": [{"party": "Acme", "description": "Deliver SLA", "deadline": "2026-10-02", "urgency": "High", "source_clause": "S4.2"}]}'
         if "summary" in prompt or "summariz" in prompt:
             return '{"headline": "Saved headline", "parties_summary": "Acme + TechInc"}'
+        if "obligation" in prompt:
+            return '{"obligations": [{"party": "Acme", "description": "Deliver SLA", "deadline": "2026-10-02", "urgency": "High", "source_clause": "S4.2"}]}'
         raise AssertionError(f"unmatched prompt: {prompt[:80]}")
 
     patch_gemini(monkeypatch, respond=respond)

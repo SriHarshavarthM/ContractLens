@@ -112,7 +112,18 @@ export default function RiskReview() {
                     </div>
                   )}
 
+                  {f.suggested_revision && (
+                    <div className="mt-3 p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60">
+                      <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 block mb-1 font-bold">RECOMMENDED REDLINE REVISION</span>
+                      <p className="text-[11px] font-mono text-emerald-900 dark:text-emerald-200 italic leading-relaxed">
+                        &quot;{f.suggested_revision}&quot;
+                      </p>
+                    </div>
+                  )}
+
                   <div className="mt-3 flex items-center gap-2 flex-wrap text-[10px] font-mono text-zinc-400 dark:text-zinc-500">
+                    {f.flag_type ? <Badge tone="rose">{f.flag_type}</Badge> : null}
+                    {f.affected_party ? <Badge tone="zinc">Impacts: {f.affected_party}</Badge> : null}
                     {f.section_reference ? <Badge tone="zinc">§ {f.section_reference}</Badge> : null}
                     {f.page_reference ? <Badge tone="zinc">p. {f.page_reference}</Badge> : null}
                   </div>

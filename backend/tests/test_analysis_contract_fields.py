@@ -29,12 +29,6 @@ def test_every_category_returns_documented_envelope_and_fields(api, monkeypatch,
                 "obligation": "Pay", "deadline": "2026-10-02", "days_remaining": 13,
                 "urgency": "High", "party": "Acme", "source_clause": "S5.1",
             }]})
-        if "obligation" in p and "timeline" not in p:
-            return json.dumps({"obligations": [{
-                "party": "Acme", "description": "Deliver SLA", "deadline": "2026-10-01",
-                "frequency": "Monthly", "obligation_type": "Performance",
-                "urgency": "High", "source_clause": "S4.2",
-            }]})
         if "timeline" in p:
             return json.dumps({"timeline": [{
                 "date": "2026-10-01", "label": "Renewal", "type": "renewal",
@@ -56,6 +50,12 @@ def test_every_category_returns_documented_envelope_and_fields(api, monkeypatch,
                 "financial_terms": "$100,000", "risk_highlights": ["Liability cap"],
                 "recommended_actions": ["Negotiate"],
             })
+        if "obligation" in p:
+            return json.dumps({"obligations": [{
+                "party": "Acme", "description": "Deliver SLA", "deadline": "2026-10-01",
+                "frequency": "Monthly", "obligation_type": "Performance",
+                "urgency": "High", "source_clause": "S4.2",
+            }]})
         raise AssertionError(f"unmatched prompt: {prompt[:80]}")
 
     patch_gemini(monkeypatch, respond=respond)
@@ -164,14 +164,14 @@ def test_all_categories_are_document_specific(api, monkeypatch, fake_supabase):
         if "risk analyst" in p:
             return json.dumps({"flags": [{"title": "Giraffe risk" if giraffe else "Zebra risk",
                                           "reason": "r", "severity": "Low", "section_reference": "S2"}]})
+        if "summariz" in p or "summary" in p:
+            return json.dumps({"headline": "Giraffe summary" if giraffe else "Zebra summary"})
         if "obligation" in p:
             return json.dumps({"obligations": [{
                 "party": "GiraffeCo" if giraffe else "ZebraCo",
                 "description": "Giraffe obligation" if giraffe else "Zebra obligation",
                 "deadline": "2026-10-01", "urgency": "High", "source_clause": "S1",
             }]})
-        if "summariz" in p or "summary" in p:
-            return json.dumps({"headline": "Giraffe summary" if giraffe else "Zebra summary"})
         raise AssertionError(f"unmatched prompt: {prompt[:80]}")
 
     patch_gemini(monkeypatch, respond=respond)

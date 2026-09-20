@@ -138,13 +138,23 @@ ContractLens Review Team`
                   <div className={`p-2 rounded-xl bg-zinc-100 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] ${style.iconColor}`}>
                     <AlertTriangle className="w-4 h-4" />
                   </div>
-                  <div>
-                    <span className={`text-xs font-bold uppercase px-2.5 py-0.5 rounded-full border ${style.badge} mr-2`}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-xs font-bold uppercase px-2.5 py-0.5 rounded-full border ${style.badge}`}>
                       {style.label}
                     </span>
+                    {flag.flag_type && (
+                      <span className="text-[10px] font-mono font-semibold uppercase px-2 py-0.5 rounded bg-zinc-100 dark:bg-[#18181B] text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                        {flag.flag_type}
+                      </span>
+                    )}
                     <span className="text-xs font-mono font-bold text-zinc-900 dark:text-white">
                       {flag.section_reference || `Section ${idx + 1}`}
                     </span>
+                    {flag.affected_party && (
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400 font-normal">
+                        · Impacts: <strong className="text-zinc-800 dark:text-zinc-200">{flag.affected_party}</strong>
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -198,6 +208,19 @@ ContractLens Review Team`
                   {flag.reason}
                 </p>
               </div>
+
+              {/* Suggested Alternative Redline Revision */}
+              {flag.suggested_revision && (
+                <div className="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60 space-y-1">
+                  <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Recommended Redline Revision (Alternative Clause)</span>
+                  </div>
+                  <p className="text-xs text-emerald-900 dark:text-emerald-200 font-mono italic leading-relaxed">
+                    &quot;{flag.suggested_revision}&quot;
+                  </p>
+                </div>
+              )}
             </div>
           );
         })}

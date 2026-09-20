@@ -202,7 +202,10 @@ async def extract_stream(payload: dict, current_user: dict = Depends(get_current
 
 @app.post("/obligations/stream")
 async def obligations_stream(payload: dict, current_user: dict = Depends(get_current_user)):
-    return make_stream_response(OBLIGATIONS_SYSTEM_PROMPT, payload, current_user, save_obligations_supabase)
+    from datetime import date
+    today = payload.get("ref_date") or date.today().isoformat()
+    prompt = OBLIGATIONS_SYSTEM_PROMPT.replace("{today}", today)
+    return make_stream_response(prompt, payload, current_user, save_obligations_supabase)
 
 @app.post("/summary/stream")
 async def summary_stream(payload: dict, current_user: dict = Depends(get_current_user)):

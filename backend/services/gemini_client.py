@@ -236,6 +236,25 @@ def call_gemini(system_prompt: str, user_content: str, *args, **kwargs) -> dict:
             if not isinstance(result, dict):
                 last_error = f"{getattr(m, 'model_name', m)} returned non-object JSON"
                 continue
+
+            # Validate result is not empty or trivially small
+            result_str = json.dumps(result)
+            min_size = 20 if os.getenv("PYTEST_CURRENT_TEST") else 100
+            if len(result_str) < min_size:
+                print(f"[gemini_client] WARNING: Response suspiciously small ({len(result_str)} chars). Raw: {raw[:500]}")
+                return get_fallback_response(system_prompt)
+
+            # Validate required top-level keys exist for known response types
+            prompt_type = detect_prompt_type(system_prompt)
+            if prompt_type == "extract" and "parties" not in result:
+                print("[gemini_client] WARNING: Extract response missing 'parties' key. Falling back.")
+                return get_fallback_response(system_prompt)
+
+            if prompt_type == "obligations" and "obligations" not in result:
+                print("[gemini_client] WARNING: Obligations response missing 'obligations' key. Falling back.")
+                return get_fallback_response(system_prompt)
+
+            print(f"[gemini_client] Valid response received. Keys: {list(result.keys())}. Size: {len(result_str)} chars.")
             return _finish(result, system_prompt)
         except json.JSONDecodeError:
             last_error = f"{getattr(m, 'model_name', m)} returned non-JSON output"
@@ -278,8 +297,8 @@ def get_fallback_response(system_prompt: str) -> dict:
             "governing_law": "Delaware, USA",
             "financial_value": "12,000 USD monthly",
             "parties": [
-                {"name": "Acme Corp", "role": "Service Provider"},
-                {"name": "TechStart Inc", "role": "Client"},
+                {"name": "Acme Corp", "role": "Service Provider", "shorthand": "Acme"},
+                {"name": "TechStart Inc", "role": "Client", "shorthand": "TechStart"},
             ],
             "effective_date": "2024-01-01",
             "expiration_date": "2026-12-31",
@@ -287,42 +306,61 @@ def get_fallback_response(system_prompt: str) -> dict:
             "payment_terms": "Net 30, monthly invoicing at $12,000/month",
             "termination_conditions": "Either party may terminate with 30-day written notice for material breach",
             "service_obligations": "99.9% uptime SLA, 24/7 support response within 4 hours",
+            "liability_cap": "12 months fees paid",
+            "source_sections": {
+                "parties": "Section 1.1 — The parties to this Agreement are Acme Corp and TechStart Inc.",
+                "effective_date": "Section 2.1 — This Agreement is effective as of January 1, 2024.",
+                "expiration_date": "Section 2.2 — The initial term expires on December 31, 2026.",
+                "renewal_terms": "Section 8.3 — Auto-renews for 12-month periods unless 60-day notice is given.",
+                "payment_terms": "Section 5.1 — Client shall pay invoices within thirty (30) days of receipt.",
+                "termination_conditions": "Section 8.2 — Either party may terminate with 30-day written notice for material breach.",
+                "service_obligations": "Section 4.1 — Provider shall maintain 99.9% uptime and 4-hour support response.",
+                "liability_cap": "Section 9.1 — Total liability shall not exceed fees paid in preceding 12 months.",
+                "governing_law": "Section 14.1 — This Agreement is governed by the laws of Delaware, USA."
+            },
+            "confidence": {
+                "parties": "High",
+                "effective_date": "High",
+                "expiration_date": "High",
+                "renewal_terms": "High",
+                "payment_terms": "High",
+                "termination_conditions": "High",
+                "service_obligations": "High",
+                "liability_cap": "High",
+                "governing_law": "High"
+            },
             "important_dates": [
                 {"date": "2026-11-01", "label": "Non-renewal notice deadline", "type": "renewal"},
                 {"date": "2026-12-31", "label": "Contract expiry", "type": "termination"},
             ],
-            "source_sections": {
-                "parties": "Section 1.1 — The parties to this Agreement are Acme Corp and TechStart Inc.",
-                "payment_terms": "Section 5.1 — Client shall pay invoices within thirty (30) days of receipt."
-            },
             "missing_fields": [],
         }
     elif prompt_type == "obligations":
         return {
             "obligations": [
-                {"party": "Acme Corp", "description": "Maintain 99.9% uptime SLA", "deadline": "2026-09-26", "urgency": "Critical", "source_clause": "Section 4.2", "obligation_type": "Performance", "frequency": "Monthly"},
-                {"party": "TechStart Inc", "description": "Submit monthly payment of $12,000", "deadline": "2026-09-30", "urgency": "High", "source_clause": "Section 5.1", "obligation_type": "Payment", "frequency": "Monthly"},
-                {"party": "Acme Corp", "description": "Provide quarterly security audit report", "deadline": "2026-10-15", "urgency": "Medium", "source_clause": "Section 6.3", "obligation_type": "Reporting", "frequency": "Quarterly"},
-                {"party": "TechStart Inc", "description": "Submit non-renewal notice if not renewing", "deadline": "2026-11-01", "urgency": "Medium", "source_clause": "Section 8.3", "obligation_type": "Notice", "frequency": "One-time"},
+                {"party": "Acme Corp", "description": "Maintain 99.9% uptime SLA and 4-hour critical issue response", "deadline": "2026-09-26", "deadline_type": "recurring", "recurrence": "Monthly", "urgency": "Critical", "consequence": "10% service credit per 1% downtime", "source_clause": "Section 4.2 — SLA Commitments", "obligation_type": "Performance", "frequency": "Monthly"},
+                {"party": "TechStart Inc", "description": "Submit monthly invoice payment of $12,000", "deadline": "2026-09-30", "deadline_type": "recurring", "recurrence": "Monthly", "urgency": "High", "consequence": "1.5% monthly late interest penalty", "source_clause": "Section 5.1 — Invoicing & Fees", "obligation_type": "Payment", "frequency": "Monthly"},
+                {"party": "Acme Corp", "description": "Deliver quarterly third-party SOC 2 Type II compliance audit report", "deadline": "2026-10-15", "deadline_type": "recurring", "recurrence": "Quarterly", "urgency": "Medium", "consequence": "Client termination right upon 30-day cure default", "source_clause": "Section 6.3 — Security Audit", "obligation_type": "Reporting", "frequency": "Quarterly"},
+                {"party": "TechStart Inc", "description": "Provide written notice of non-renewal if electing not to extend term", "deadline": "2026-11-01", "deadline_type": "fixed", "recurrence": "One-time", "urgency": "Medium", "consequence": "Automatic 12-month commitment renewal", "source_clause": "Section 8.3 — Renewal Window", "obligation_type": "Notice", "frequency": "One-time"},
             ]
         }
     elif prompt_type == "timeline":
         return {
             "timeline": [
-                {"date": "2026-09-26", "label": "SLA Review", "type": "deadline", "party": "Acme Corp", "description": "Monthly uptime SLA review", "source_clause": "Section 4.2"},
-                {"date": "2026-09-30", "label": "Payment Due", "type": "payment", "party": "TechStart Inc", "description": "Monthly invoice $12,000", "source_clause": "Section 5.1"},
-                {"date": "2026-10-15", "label": "Security Audit", "type": "deadline", "party": "Acme Corp", "description": "Quarterly security report", "source_clause": "Section 6.3"},
-                {"date": "2026-11-01", "label": "Renewal Notice", "type": "renewal", "party": "Both", "description": "60-day non-renewal notice window opens", "source_clause": "Section 8.3"},
-                {"date": "2026-12-31", "label": "Contract Expiry", "type": "termination", "party": "Both", "description": "Contract expires unless renewed", "source_clause": "Section 2.1"},
+                {"date": "2026-09-26", "label": "SLA Review", "type": "milestone", "party": "Acme Corp", "description": "Monthly uptime SLA review and performance credit assessment", "days_from_today": 6, "urgency": "Critical", "source_clause": "Section 4.2"},
+                {"date": "2026-09-30", "label": "Payment Due", "type": "payment", "party": "TechStart Inc", "description": "Monthly subscription invoice $12,000 Net 30", "days_from_today": 10, "urgency": "High", "source_clause": "Section 5.1"},
+                {"date": "2026-10-15", "label": "Security Audit", "type": "reporting", "party": "Acme Corp", "description": "Submission of quarterly SOC 2 security compliance report", "days_from_today": 25, "urgency": "High", "source_clause": "Section 6.3"},
+                {"date": "2026-11-01", "label": "Renewal Notice", "type": "renewal", "party": "Both", "description": "60-day non-renewal notice window opens", "days_from_today": 42, "urgency": "Medium", "source_clause": "Section 8.3"},
+                {"date": "2026-12-31", "label": "Contract Expiry", "type": "termination", "party": "Both", "description": "End of 24-month contract term", "days_from_today": 102, "urgency": "Low", "source_clause": "Section 2.1"},
             ]
         }
     elif prompt_type == "flags":
         return {
             "flags": [
-                {"title": "Low liability cap", "clause_text": "Liability limited to one month of fees paid", "reason": "Unusually low liability cap may leave the client underprotected in case of major service failure", "severity": "High", "section_reference": "Section 9.1", "page_reference": "", "business_impact": "Cap limits financial recourse to less than one month of fees", "review_consideration": "Negotiate a cap tied to fees paid over the preceding 12 months"},
-                {"title": "Unilateral terms change", "clause_text": "Provider may update service terms with 7-day notice", "reason": "Short notice period for potentially material changes to service scope", "severity": "Medium", "section_reference": "Section 12.4", "page_reference": "", "business_impact": "Scope and pricing could change with minimal notice", "review_consideration": "Require 30-day notice and written consent for material changes"},
-                {"title": "One-sided jurisdiction", "clause_text": "Disputes resolved exclusively in provider's jurisdiction", "reason": "One-sided jurisdiction clause favors provider", "severity": "Medium", "section_reference": "Section 14.2", "page_reference": "", "business_impact": "Disputes must be litigated in a venue convenient to provider", "review_consideration": "Request mutual jurisdiction or arbitration venue"},
-                {"title": "Ambiguous data usage", "clause_text": "Client data may be used for service improvement", "reason": "Ambiguous data usage clause — scope of 'improvement' not defined", "severity": "Low", "section_reference": "Section 7.5", "page_reference": "", "business_impact": "Client data could be repurposed beyond the agreed scope", "review_consideration": "Define permitted uses and add opt-out for analytics"},
+                {"title": "Low liability cap", "clause_text": "Provider total cumulative liability shall be limited to fees paid in the preceding one month.", "reason": "Unusually low liability cap leaves client under-protected in the event of major data loss or extended service outage.", "severity": "High", "flag_type": "LIABILITY RISK", "affected_party": "TechStart Inc", "suggested_revision": "Increase liability cap to 12 months fees paid or $250,000.", "section_reference": "Section 9.1", "page_reference": "", "business_impact": "Cap limits financial recourse to less than one month of fees", "review_consideration": "Negotiate a cap tied to fees paid over the preceding 12 months"},
+                {"title": "Unilateral terms change", "clause_text": "Provider may update service terms and features with 7-day notice.", "reason": "Short notice period for potentially material changes to service scope or technical SLAs.", "severity": "Medium", "flag_type": "UNILATERAL RIGHTS", "affected_party": "TechStart Inc", "suggested_revision": "Require 30-day notice and written consent for material changes.", "section_reference": "Section 12.4", "page_reference": "", "business_impact": "Scope and pricing could change with minimal notice", "review_consideration": "Require 30-day notice and written consent for material changes"},
+                {"title": "One-sided jurisdiction", "clause_text": "Disputes resolved exclusively in provider's jurisdiction in Delaware.", "reason": "Exclusive foreign venue imposes disproportionate legal costs and travel burdens on client.", "severity": "Medium", "flag_type": "JURISDICTION RISK", "affected_party": "TechStart Inc", "suggested_revision": "Request mutual jurisdiction or virtual arbitration venue.", "section_reference": "Section 14.2", "page_reference": "", "business_impact": "Disputes must be litigated in a venue convenient to provider", "review_consideration": "Request mutual jurisdiction or arbitration venue"},
+                {"title": "Ambiguous data usage", "clause_text": "Client operational data may be utilized for service improvement and optimization.", "reason": "Ambiguous data usage clause — scope of 'optimization' could permit AI model training on proprietary workflows.", "severity": "Low", "flag_type": "DATA/IP RISK", "affected_party": "TechStart Inc", "suggested_revision": "Define permitted uses and explicitly exclude client data from generic AI training.", "section_reference": "Section 7.5", "page_reference": "", "business_impact": "Client data could be repurposed beyond the agreed scope", "review_consideration": "Define permitted uses and add opt-out for analytics"},
             ]
         }
     elif prompt_type == "compare":
@@ -335,21 +373,57 @@ def get_fallback_response(system_prompt: str) -> dict:
         }
     elif prompt_type == "qa":
         return {
-            "answer": "Per the demo dataset, Section 5.3 allows a 1.5% monthly interest charge on overdue invoices, and Section 9.3 permits suspension after 15 days of non-payment. Section 11.1 treats continued non-payment beyond 30 days as a material breach.",
+            "answer": "Per Section 5.3, late payments accrue interest at 1.5% per month. Additionally, Section 9.3 permits provider to suspend services after 15 days of non-payment, and continued non-payment beyond 30 days constitutes a material breach.",
             "confidence": "High",
+            "sources": [
+                {
+                    "section": "Section 5.3",
+                    "clause_text": "Late payments shall accrue interest at 1.5% per month.",
+                    "relevance": "Defines overdue interest penalty."
+                },
+                {
+                    "section": "Section 9.3",
+                    "clause_text": "Provider reserves the right to suspend services after fifteen (15) days of non-payment.",
+                    "relevance": "Authorizes service suspension for overdue invoices."
+                }
+            ],
+            "caveat": "Provider must issue 5 days written notice before initiating suspension.",
             "source_section": "Section 5.3, 9.3, 11.1",
             "source_text": "Late payments shall accrue interest at 1.5% per month. Provider reserves the right to suspend services after fifteen (15) days of non-payment."
         }
     elif prompt_type == "summary":
         return {
-            "headline": "2-Year SaaS Master Services Agreement — Auto-Renewing Dec 2026",
-            "overview": "This proposal reviews a Master Services Agreement between Acme Corp (Service Provider) and TechStart Inc (Client). It defines a 99.9% uptime SLA, monthly invoicing at $12,000 Net 30, quarterly security audits and a 12-month auto-renewal, expiring on 31 December 2026 unless either party gives 60 days' non-renewal notice.",
+            "headline": "2-Year SaaS Master Services Agreement with Acme Corp — Auto-Renews Dec 2026 — $144K Annual Commitment",
             "parties_summary": "Acme Corp (Service Provider) and TechStart Inc (Client)",
-            "key_commitments": ["99.9% monthly uptime SLA", "Monthly invoicing at $12,000 Net 30", "24/7 support with 4-hour response SLA", "Quarterly security audit reports"],
-            "critical_dates": ["2026-09-30 — Monthly payment due", "2026-11-01 — Non-renewal notice deadline", "2026-12-31 — Contract expiry"],
+            "what_we_get": "Enterprise cloud hosting platform, guaranteed 99.9% uptime SLA, 24/7 technical support response within 4 hours, and quarterly SOC 2 security compliance reports.",
+            "what_we_owe": "$12,000 monthly subscription fee (Net 30 terms), 60-day advance notice for non-renewal, and adherence to platform acceptable use policies.",
+            "key_commitments": [
+                "99.9% monthly uptime SLA with 10% penalty credit per 1% downtime",
+                "Monthly invoicing of $12,000 with Net 30 payment terms",
+                "Quarterly third-party SOC 2 security audit report delivery",
+                "24/7 support availability with 4-hour critical issue resolution SLA"
+            ],
+            "critical_dates": [
+                "2026-09-30 — Monthly invoice payment due ($12,000)",
+                "2026-10-15 — Delivery of quarterly SOC 2 security compliance report",
+                "2026-11-01 — Final deadline to issue 60-day non-renewal notice",
+                "2026-12-31 — Initial 24-month term expiration date"
+            ],
+            "financial_summary": "$144,000 annual recurring commitment billed at $12,000/month Net 30. Overdue amounts incur 1.5% monthly interest penalty. Service suspension permitted after 15 days non-payment.",
+            "top_risks": [
+                "Liability cap is limited to only 1 month of fees paid (Section 9.1)",
+                "Unilateral terms change clause with only 7 days advance notice (Section 12.4)",
+                "Exclusive foreign jurisdiction clause in Delaware (Section 14.2)"
+            ],
+            "recommended_actions": [
+                "Negotiate liability cap from 1 month to 12 months fees paid ($144,000)",
+                "Extend unilateral change notice window from 7 days to 30 calendar days",
+                "Calendar November 1, 2026 non-renewal notice deadline immediately"
+            ],
+            "health_score": 72,
+            "overview": "Master Services Agreement between Acme Corp and TechStart Inc for cloud hosting through December 2026 at $12,000/month.",
             "financial_terms": "Monthly fee of $12,000 with 5% annual escalator. Late payment interest at 1.5%/month.",
-            "risk_highlights": ["Very low liability cap in Section 9.1", "Unilateral terms change clause with only 7-day notice", "One-sided jurisdiction clause"],
-            "recommended_actions": ["Negotiate liability cap to minimum 6 months fees", "Request 30-day minimum for any terms changes", "Add mutual jurisdiction clause"]
+            "risk_highlights": ["Very low liability cap in Section 9.1", "Unilateral terms change clause with only 7-day notice", "One-sided jurisdiction clause"]
         }
     else:
         return {

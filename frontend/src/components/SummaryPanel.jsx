@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export default function SummaryPanel() {
-  const { summary, activeContractId, contracts } = useContractStore();
+  const { summary, activeContractId, contracts, getHealthScore } = useContractStore();
 
   const activeContract = contracts.find((c) => c.id === activeContractId);
 
@@ -27,6 +27,8 @@ export default function SummaryPanel() {
       </div>
     );
   }
+
+  const healthScore = summary.health_score || (typeof getHealthScore === 'function' ? getHealthScore() : 85);
 
   const handlePrint = () => {
     window.print();
@@ -60,34 +62,77 @@ export default function SummaryPanel() {
       {/* Printable Executive Card */}
       <div className="print-area p-8 lg:p-10 rounded-2xl border border-zinc-200 dark:border-[#27272A] bg-white dark:bg-[#121215] shadow-sm space-y-8">
         {/* Document Header */}
-        <div className="border-b border-zinc-100 dark:border-[#27272A] pb-6">
-          <div className="flex items-center justify-between gap-4 mb-2">
-            <span className="text-[11px] uppercase font-bold tracking-widest text-brand-indigo">
-              CONTRACTLENS EXECUTIVE REPORT
-            </span>
-            <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
-              Generated {new Date().toLocaleDateString()}
-            </span>
+        <div className="border-b border-zinc-100 dark:border-[#27272A] pb-6 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-4 mb-2">
+              <span className="text-[11px] uppercase font-bold tracking-widest text-brand-indigo">
+                CONTRACTLENS EXECUTIVE REPORT
+              </span>
+              <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
+                Generated {new Date().toLocaleDateString()}
+              </span>
+            </div>
+
+            <h1 className="text-2xl lg:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight mb-2">
+              {summary.headline || 'Enterprise Agreement Executive Summary'}
+            </h1>
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 font-medium">
+              Parties: <span className="text-zinc-900 dark:text-white font-semibold">{summary.parties_summary}</span>
+            </p>
           </div>
 
-          <h1 className="text-2xl lg:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight mb-2">
-            {summary.headline || 'Enterprise Agreement Executive Summary'}
-          </h1>
-          <p className="text-xs text-zinc-600 dark:text-zinc-300 font-medium">
-            Parties: <span className="text-zinc-900 dark:text-white font-semibold">{summary.parties_summary}</span>
-          </p>
+          {/* Health Score Pill Card */}
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 flex flex-col items-center justify-center">
+              <span className="text-base font-black text-emerald-700 dark:text-emerald-400 leading-none">{healthScore}</span>
+              <span className="text-[8px] font-mono text-emerald-600 dark:text-emerald-500 uppercase">SCORE</span>
+            </div>
+            <div>
+              <span className="text-xs font-bold text-zinc-900 dark:text-white block">Contract Health</span>
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block">Executive Quality Index</span>
+            </div>
+          </div>
         </div>
 
-        {/* Commercial & Financial Terms Overview */}
-        <div className="p-5 rounded-xl bg-zinc-50 dark:bg-[#18181B] border border-zinc-200 dark:border-[#27272A] space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-            <DollarSign className="w-4 h-4" />
-            <span>Financial Terms & Commercial Structure</span>
+        {/* Commercial & Financial Terms Overview (Highlighted Card) */}
+        {(summary.financial_summary || summary.financial_terms) && (
+          <div className="p-5 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              <DollarSign className="w-4 h-4" />
+              <span>Financial Summary & Commercial Structure</span>
+            </div>
+            <p className="text-sm text-zinc-800 dark:text-zinc-200 font-medium leading-relaxed">
+              {summary.financial_summary || summary.financial_terms}
+            </p>
           </div>
-          <p className="text-sm text-zinc-800 dark:text-zinc-200 font-medium leading-relaxed">
-            {summary.financial_terms || 'Standard subscription fee structure.'}
-          </p>
-        </div>
+        )}
+
+        {/* Two-Column Layout: What We Get vs What We Owe */}
+        {(summary.what_we_get || summary.what_we_owe) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* What We Get */}
+            <div className="p-5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>What We Get (Entitlements & Deliverables)</span>
+              </div>
+              <p className="text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed font-normal">
+                {summary.what_we_get || 'Standard services and licensing deliverables.'}
+              </p>
+            </div>
+
+            {/* What We Owe */}
+            <div className="p-5 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/50 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-indigo dark:text-indigo-400">
+                <ShieldCheck className="w-4 h-4" />
+                <span>What We Owe (Commitments & Fees)</span>
+              </div>
+              <p className="text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed font-normal">
+                {summary.what_we_owe || 'Timely payment and operational compliance obligations.'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Two Column Grid: Key Commitments & Critical Dates */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

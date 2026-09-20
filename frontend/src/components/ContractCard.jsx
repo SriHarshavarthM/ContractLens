@@ -21,7 +21,8 @@ import {
   ArrowRight,
   TrendingUp,
   AlertTriangle,
-  Award
+  Award,
+  Globe
 } from 'lucide-react';
 
 export default function ContractCard() {
@@ -60,6 +61,21 @@ export default function ContractCard() {
   const data = extractedData || activeContract?.extractedData || {};
   const healthScore = getHealthScore();
   const sourceSections = data.source_sections || {};
+
+  const renderConfidenceBadge = (level) => {
+    if (!level) return null;
+    const l = String(level).toLowerCase();
+    const colorClass = l === 'high'
+      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+      : l === 'medium'
+      ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+      : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border-rose-200 dark:border-rose-800';
+    return (
+      <span className={`inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${colorClass} uppercase tracking-wider ml-1.5`}>
+        {level}
+      </span>
+    );
+  };
 
   const handleAction = (msg) => {
     setActionNotice(msg);
@@ -102,8 +118,9 @@ export default function ContractCard() {
                 <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                   <FileText className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight flex items-center">
                   Contract Duration
+                  {renderConfidenceBadge(data.confidence?.dates)}
                 </h3>
               </div>
 
@@ -169,8 +186,9 @@ export default function ContractCard() {
                 <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                   <Briefcase className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight flex items-center">
                   Contract Position Details
+                  {renderConfidenceBadge(data.confidence?.parties)}
                 </h3>
               </div>
 
@@ -227,8 +245,9 @@ export default function ContractCard() {
                 <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                   <CreditCard className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight flex items-center">
                   Compensation &amp; Benefit
+                  {renderConfidenceBadge(data.confidence?.financials)}
                 </h3>
               </div>
 
@@ -300,13 +319,43 @@ export default function ContractCard() {
               </div>
               <div>
                 <span className="text-[11px] text-slate-400 dark:text-slate-500 block font-medium">Liability Cap</span>
-                <span className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">12 Months Fees Paid</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {data.liability_cap && (data.liability_cap.toLowerCase().includes('uncapped') || data.liability_cap.toLowerCase().includes('unlimited') || data.liability_cap.toLowerCase().includes('no cap') || data.liability_cap.toLowerCase().includes('none')) ? (
+                    <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 font-bold">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
+                      {data.liability_cap} (Uncapped)
+                    </span>
+                  ) : (
+                    <span className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                      {data.liability_cap || '12 Months Fees Paid'}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 block font-medium flex items-center gap-1">
+                  <Globe className="w-3.5 h-3.5 text-brand-indigo flex-shrink-0" />
+                  Governing Law
+                </span>
+                <span className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm mt-0.5 block">
+                  {data.governing_law || 'Delaware, USA'}
+                </span>
               </div>
               <div>
                 <span className="text-[11px] text-slate-400 dark:text-slate-500 block font-medium">Renewal Terms</span>
                 <span className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
                   {data.renewal_terms || 'Automatic 12-Month Renewal'}
                 </span>
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 block font-medium">Extraction Confidence</span>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
+                    {data.confidence?.overall || 'High'} Quality
+                  </span>
+                  {renderConfidenceBadge(data.confidence?.overall || 'High')}
+                </div>
               </div>
             </div>
 

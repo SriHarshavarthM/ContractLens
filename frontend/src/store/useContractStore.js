@@ -943,6 +943,8 @@ export const useContractStore = create((set, get) => {
         question,
         answer: data.answer,
         confidence: data.confidence || 'High',
+        sources: Array.isArray(data.sources) ? data.sources : [],
+        caveat: data.caveat || null,
         source_section: data.source_section,
         source_text: data.source_text,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),

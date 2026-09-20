@@ -67,10 +67,29 @@ export default function DocumentSummary() {
             <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">{summary.parties_summary}</p>
           )}
 
-          {summary.financial_terms && (
+          {(summary.financial_summary || summary.financial_terms) && (
             <div className="mt-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 p-3.5">
-              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 block mb-1">FINANCIAL TERMS</span>
-              <p className="text-xs leading-relaxed text-emerald-900 dark:text-emerald-200">{summary.financial_terms}</p>
+              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 block mb-1">COMMERCIAL &amp; FINANCIAL STRUCTURE</span>
+              <p className="text-xs leading-relaxed text-emerald-900 dark:text-emerald-200 font-medium">
+                {summary.financial_summary || summary.financial_terms}
+              </p>
+            </div>
+          )}
+
+          {(summary.what_we_get || summary.what_we_owe) && (
+            <div className="mt-4 grid md:grid-cols-2 gap-4">
+              {summary.what_we_get && (
+                <div className="rounded-xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 p-3.5">
+                  <span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 block mb-1">WHAT WE GET (ENTITLEMENTS)</span>
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">{summary.what_we_get}</p>
+                </div>
+              )}
+              {summary.what_we_owe && (
+                <div className="rounded-xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 p-3.5">
+                  <span className="text-[10px] font-mono font-bold text-brand-indigo dark:text-indigo-400 block mb-1">WHAT WE OWE (OBLIGATIONS)</span>
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">{summary.what_we_owe}</p>
+                </div>
+              )}
             </div>
           )}
 
