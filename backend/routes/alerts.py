@@ -1,10 +1,12 @@
 import json
-from fastapi import APIRouter, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
-from services.gemini_client import call_gemini
+from services.gemini_client import call_gemini, GeminiRequestError
 from services.security import get_current_user
+from services.supabase_client import data_client
+from services.ownership import owns_contract
 
 router = APIRouter()
 
@@ -20,6 +22,7 @@ class AlertItem(BaseModel):
 class AlertsRequest(BaseModel):
     text: Optional[str] = None
     obligations: Optional[List[Dict[str, Any]]] = None
+    contract_id: Optional[str] = None
 
 @router.get("/alerts")
 async def get_alerts(
@@ -44,7 +47,20 @@ async def post_alerts(
     Contract text is read from the JSON request body (AlertsRequest.text), falling back to
     AlertsRequest.obligations when text is not provided.
     """
-    return compute_alert_response(req, today)
+    resp = compute_alert_response(req, today)
+
+    # Persist the computed alerts against the owned contract row so they
+    # restore after sign-out / reload. Best-effort: analysis still returns.
+    client = data_client(current_user)
+    if client and req.contract_id and owns_contract(current_user, req.contract_id):
+        try:
+            client.table("contracts").update({"alerts": resp}).eq(
+                "id", req.contract_id
+            ).eq("user_id", current_user["sub"]).execute()
+        except Exception as e:
+            print(f"[alerts.py] Supabase save error: {e}")
+
+    return resp
 
 def compute_alert_response(req: AlertsRequest, today: Optional[str]):
     try:
@@ -64,7 +80,10 @@ def compute_alert_response(req: AlertsRequest, today: Optional[str]):
         "Return ONLY raw JSON: { alerts: [{obligation, deadline, days_remaining, urgency: 'Critical|High|Medium|Low', party, source_clause}] }."
     )
 
-    result = call_gemini(system_prompt, contract_text or "Standard contract terms", ref_date_str=today_str)
+    try:
+        result = call_gemini(system_prompt, contract_text or "Standard contract terms", ref_date_str=today_str)
+    except GeminiRequestError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     alerts_raw = result.get("alerts", [])
 
     categorized_alerts = []

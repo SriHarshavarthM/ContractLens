@@ -149,7 +149,7 @@ export default function QAChat() {
                       </span>
                     </div>
                     <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
-                      Powered by Gemini 1.5 Pro
+                      Grounded in document text
                     </span>
                   </div>
 

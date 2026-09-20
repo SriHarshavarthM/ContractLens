@@ -2,15 +2,19 @@ import React, { useEffect } from 'react';
 import { useContractStore } from './store/useContractStore';
 import AppShell from './components/AppShell';
 import AuthPage from './components/AuthPage';
+import ContractLibrary from './components/ContractLibrary';
 import UploadZone from './components/UploadZone';
-import ContractCard from './components/ContractCard';
-import ObligationsPanel from './components/ObligationsPanel';
-import ObligationTimeline from './components/ObligationTimeline';
-import FlagsPanel from './components/FlagsPanel';
+import AnalysisHeader from './components/analysis/AnalysisHeader';
+import ExecutiveOverview from './components/analysis/ExecutiveOverview';
+import RiskReview from './components/analysis/RiskReview';
+import ObligationsWorkspace from './components/analysis/ObligationsWorkspace';
+import ClauseExplorer from './components/analysis/ClauseExplorer';
+import TimelineView from './components/analysis/TimelineView';
+import DocumentSummary from './components/analysis/DocumentSummary';
 import CompareView from './components/CompareView';
 import QAChat from './components/QAChat';
-import SummaryPanel from './components/SummaryPanel';
-import AlertsView from './components/AlertsView';
+
+const ANALYSIS_TABS = new Set(['overview', 'obligations', 'timeline', 'flags', 'clauses', 'compare', 'qa', 'summary', 'alerts']);
 
 export default function App() {
   const {
@@ -28,14 +32,12 @@ export default function App() {
     checkBackendHealth();
   }, [checkBackendHealth]);
 
-  // Restore any persisted Supabase session and react to auth state changes.
   useEffect(() => {
     restoreSession();
     const unsubscribe = subscribeToAuth();
     return () => unsubscribe && unsubscribe();
   }, [restoreSession, subscribeToAuth]);
 
-  // Protected-route gate: wait for session restore, then require authentication.
   if (isAuthInitializing) {
     return (
       <div className="min-h-screen bg-[#F4F4F5] dark:bg-[#09090B] text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
@@ -56,39 +58,52 @@ export default function App() {
     return <AuthPage />;
   }
 
-  const activeContract = contracts.find((c) => c.id === activeContractId);
+  const activeContract = contracts.find((c) => c.id === activeContractId) || null;
 
-  const renderContent = () => {
-    // If on upload tab or no contract yet loaded
-    if (activeTab === 'upload' || !activeContract) {
-      return <UploadZone />;
-    }
+  if (activeTab === 'library') {
+    return (
+      <AppShell>
+        <ContractLibrary />
+      </AppShell>
+    );
+  }
 
+  if (activeTab === 'upload' || !activeContract) {
+    return (
+      <AppShell>
+        <UploadZone />
+      </AppShell>
+    );
+  }
+
+  const renderTab = () => {
     switch (activeTab) {
-      case 'overview':
-        return <ContractCard />;
       case 'obligations':
-        return <ObligationsPanel />;
+        return <ObligationsWorkspace />;
       case 'timeline':
-        return <ObligationTimeline />;
+        return <TimelineView />;
       case 'flags':
-        return <FlagsPanel />;
+        return <RiskReview />;
+      case 'clauses':
+        return <ClauseExplorer />;
       case 'compare':
         return <CompareView />;
       case 'qa':
         return <QAChat />;
       case 'summary':
-        return <SummaryPanel />;
+        return <DocumentSummary />;
       case 'alerts':
-        return <AlertsView />;
+        return <DocumentSummary />;
+      case 'overview':
       default:
-        return <ContractCard />;
+        return <ExecutiveOverview />;
     }
   };
 
   return (
     <AppShell>
-      {renderContent()}
+      {ANALYSIS_TABS.has(activeTab) && <AnalysisHeader />}
+      {renderTab()}
     </AppShell>
   );
 }

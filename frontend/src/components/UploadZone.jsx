@@ -5,42 +5,39 @@ import {
   Upload,
   FileText,
   Sparkles,
-  CheckCircle2,
   ArrowRight,
-  ShieldCheck,
-  Zap,
   Layers,
   FileCheck,
   Cpu,
 } from 'lucide-react';
 
 const PROCESSING_STEPS = [
-  "Connecting to Gemini 2.5 Pro...",
+  "Connecting to the analysis engine...",
   "Extracting contract text with PyMuPDF...",
-  "Gemini 2.5 Pro is reading your contract...",
+  "Reading your contract...",
   "Identifying parties and key terms...",
-  "Mapping party obligations and urgency levels...",
-  "Building chronological deadline timeline...",
-  "Auditing clauses for legal risk...",
-  "Generating executive briefing...",
+  "Mapping obligations and deadlines...",
+  "Building the chronological timeline...",
+  "Auditing clauses for risk...",
+  "Generating the executive briefing...",
   "Computing deadline alerts...",
-  "Finalizing contract intelligence report..."
+  "Finalizing the contract report...",
 ];
 
 export default function UploadZone() {
   const store = useContractStore();
+  const isProcessing = store.isAnalyzing;
+  const streamedTokens = store.streamedTokens;
+  const analysisStep = store.analysisStep;
+
   const [dragActive, setDragActive] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadingFileName, setUploadingFileName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
 
-  // Streaming & Live Progress state
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [streamedTokens, setStreamedTokens] = useState('');
   const [displayStep, setDisplayStep] = useState(PROCESSING_STEPS[0]);
 
-  // Step C: Cycle through PROCESSING_STEPS every 2200ms while processing
   useEffect(() => {
     if (!isProcessing) return;
     let i = 0;
@@ -76,136 +73,21 @@ export default function UploadZone() {
     }
   };
 
-  // Step B3: Streaming Contract Analysis implementation
-  const analyzeWithStream = async (contractText, fileName = 'contract.pdf', contractId = null, extraData = {}) => {
-    setIsProcessing(true);
-    setStreamedTokens('');
-    const initialStep = "Connecting to Gemini 2.5 Pro...";
-    setDisplayStep(initialStep);
-    store.setProcessing(initialStep);
-
-    const cid = contractId || ('c_' + Date.now());
-    const today = new Date().toISOString().split('T')[0];
-
-    try {
-      // Use streaming for extract (slowest + most tokens)
-      const response = await store.authedFetch('/extract/stream', {
-        method: 'POST',
-        body: JSON.stringify({
-          text: contractText,
-          filename: fileName,
-          contract_id: cid,
-          ref_date: today,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Streaming failed (${response.status})`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = '';
-
-      store.setProcessing("Gemini is reading your contract...");
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const raw = decoder.decode(value, { stream: true });
-        // Parse SSE lines
-        const lines = raw.split('\n').filter((l) => l.startsWith('data: '));
-
-        for (const line of lines) {
-          try {
-            const event = JSON.parse(line.replace('data: ', ''));
-
-            if (event.type === 'chunk') {
-              accumulated += event.text;
-              setStreamedTokens(accumulated);
-              store.setStreamedTokens(accumulated);
-              // Show live token count so user sees progress
-              const liveMsg = `Gemini is reading your contract... (${accumulated.length} tokens)`;
-              setDisplayStep(liveMsg);
-              store.setProcessing(liveMsg);
-            }
-
-            if (event.type === 'complete') {
-              store.setExtractedData(event.data);
-              const compMsg = "Extraction complete. Analyzing obligations...";
-              setDisplayStep(compMsg);
-              store.setProcessing(compMsg);
-            }
-
-            if (event.type === 'error') {
-              store.setProcessingError(event.message);
-              setErrorMsg(event.message);
-              setIsProcessing(false);
-              return;
-            }
-          } catch (e) {
-            console.warn("SSE chunk parse warning:", e);
-          }
-        }
-      }
-
-      // After streaming extract completes, run remaining routes in parallel (non-streaming)
-      const parallelMsg = "Mapping obligations, timeline & risks in parallel...";
-      setDisplayStep(parallelMsg);
-      store.setProcessing(parallelMsg);
-
-      const [obligRes, timelineRes, flagsRes] = await Promise.all([
-        store.authedFetch('/obligations', {
-          method: 'POST',
-          body: JSON.stringify({ text: contractText, contract_id: cid, ref_date: today }),
-        }).then((r) => r.json()),
-        store.authedFetch('/timeline', {
-          method: 'POST',
-          body: JSON.stringify({ text: contractText, ref_date: today }),
-        }).then((r) => r.json()),
-        store.authedFetch('/flags', {
-          method: 'POST',
-          body: JSON.stringify({ text: contractText, contract_id: cid, ref_date: today }),
-        }).then((r) => r.json()),
-      ]);
-
-      store.setObligations(obligRes.obligations || []);
-      store.setTimeline(timelineRes.timeline || []);
-      store.setFlags(flagsRes.flags || []);
-
-      const briefingMsg = "Generating executive briefing...";
-      setDisplayStep(briefingMsg);
-      store.setProcessing(briefingMsg);
-
-      const [summaryRes, alertsRes] = await Promise.all([
-        store.authedFetch('/summary', {
-          method: 'POST',
-          body: JSON.stringify({ text: contractText, ref_date: today }),
-        }).then((r) => r.json()),
-        store.authedFetch(`/alerts?today=${today}`, {
-          method: 'POST',
-          body: JSON.stringify({ text: contractText }),
-        }).then((r) => r.json()),
-      ]);
-
-      store.setSummary(summaryRes);
-      store.setAlerts(alertsRes);
-
-      // All done — unlock the UI
-      setIsProcessing(false);
-      store.setContractReady({
-        name: fileName,
-        rawText: contractText,
-        id: cid,
-        pages: extraData.pages || 1,
-        wordCount: extraData.wordCount || contractText.split(/\s+/).length,
-      });
-    } catch (err) {
-      console.error("Stream processing error:", err);
-      setErrorMsg(err.message || 'Error occurred during streaming analysis.');
-      setIsProcessing(false);
-      store.setProcessingError(err.message);
+  // Run the store's analysis pipeline (stream extract with non-stream
+  // fallback, persistence, lifecycle status, honest errors — never canned).
+  const runAnalysis = async ({ text, filename, contract_id, pages, wordCount }) => {
+    const result = await store.analyzeContract(
+      {
+        text,
+        filename,
+        contract_id,
+        pages: pages || 1,
+        word_count: wordCount || 0,
+      },
+      true
+    );
+    if (!result.success) {
+      setErrorMsg(result.error || 'Analysis failed. Check the backend / Gemini configuration.');
     }
   };
 
@@ -225,30 +107,31 @@ export default function UploadZone() {
       });
 
       if (!res.ok) {
-        throw new Error(`Upload failed (${res.status})`);
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.detail || `Upload failed (${res.status})`);
       }
 
       setUploadProgress(85);
       const data = await res.json();
       setUploadProgress(100);
 
-      // Trigger streaming AI pipeline using the server-issued contract id so
-      // the analysis results persist against the correct (owned) contract row.
-      await analyzeWithStream(
-        data.text,
-        file.name,
-        data.contract_id,
-        { pages: data.pages || 1, wordCount: data.word_count || 0 }
-      );
+      // Trigger the AI pipeline using the server-issued contract id so the
+      // analysis persists against the correct (owned) contract row.
+      await runAnalysis({
+        text: data.text,
+        filename: file.name,
+        contract_id: data.contract_id,
+        pages: data.pages,
+        wordCount: data.word_count,
+      });
     } catch (err) {
       console.error(err);
-      setErrorMsg('Failed to process document. Please try a valid PDF or text file.');
+      setErrorMsg(err.message || 'Failed to process document. Please try a valid PDF, DOCX or TXT file.');
       setUploadProgress(0);
-      setIsProcessing(false);
     }
   };
 
-  const loadSampleContract = async (version = 1) => {
+  const loadSampleContract = (version = 1) => {
     setErrorMsg('');
     const filename = version === 1 ? 'Acme_SaaS_MSA_v1.0.pdf' : 'Acme_SaaS_MSA_v2.0_Revised.pdf';
     setUploadingFileName(filename);
@@ -257,12 +140,13 @@ export default function UploadZone() {
     const contractText = version === 1 ? createSampleContractV1() : createSampleContractV2();
     setUploadProgress(100);
 
-    await analyzeWithStream(
-      contractText,
+    runAnalysis({
+      text: contractText,
       filename,
-      'sample_v' + version + '_' + Date.now(),
-      { pages: 4, wordCount: contractText.split(/\s+/).length }
-    );
+      contract_id: 'sample_v' + version + '_' + Date.now(),
+      pages: 4,
+      wordCount: contractText.split(/\s+/).length,
+    });
   };
 
   const loadBothForComparison = async () => {
@@ -293,21 +177,26 @@ export default function UploadZone() {
     store.setContractA(c1);
     store.setContractB(c2);
 
-    // Stream analyze primary contract c1 first, then navigate to compare
-    await analyzeWithStream(v1Text, c1.filename, c1.id, { pages: 4 });
+    await runAnalysis({
+      text: c1.text,
+      filename: c1.filename,
+      contract_id: c1.id,
+      pages: 4,
+      wordCount: c1.text.split(/\s+/).length,
+    });
     store.setActiveTab('compare');
   };
 
   const currentDisplayMessage = streamedTokens
-    ? `Gemini is reading your contract... (${streamedTokens.length} tokens)`
-    : displayStep;
+    ? `Reading your contract... (${streamedTokens.length} tokens)`
+    : analysisStep || displayStep;
 
   return (
     <div className="max-w-4xl mx-auto py-8 lg:py-12 flex flex-col items-center">
       {/* Hero Badge & Heading */}
       <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 text-brand-indigo dark:text-indigo-300 text-xs font-semibold mb-6 animate-pulse-subtle">
         <Sparkles className="w-3.5 h-3.5 text-brand-indigo" />
-        <span>Gemini 2.5 Pro Contract Intelligence &amp; Live Streaming</span>
+        <span>Contract Intelligence &amp; Live Analysis</span>
       </div>
 
       <h1 className="text-3xl lg:text-5xl font-extrabold text-center tracking-tight text-zinc-900 dark:text-white mb-4">
@@ -318,7 +207,8 @@ export default function UploadZone() {
       </h1>
 
       <p className="text-zinc-600 dark:text-zinc-400 text-center max-w-2xl text-sm lg:text-base mb-10 leading-relaxed">
-        Upload any enterprise contract or MSA. ContractLens connects directly to Google Gemini 2.5 Pro with token-by-token streaming, maps deadline timelines, isolates obligations, and delivers audit-ready intelligence.
+        Upload any enterprise contract or MSA. The AI engine extracts parties, terms and financials directly from your
+        document, maps deadlines, isolates obligations, and delivers audit-ready analysis.
       </p>
 
       {/* Main Drag-and-Drop Card with Animated Glow Border */}
@@ -356,16 +246,14 @@ export default function UploadZone() {
           />
 
           {isProcessing ? (
-            /* ACTIVE STREAMING PROCESSING VIEW (Steps B4 & C) */
+            /* ACTIVE PROCESSING VIEW */
             <div className="w-full flex flex-col items-center justify-center py-2">
               {/* Spinner */}
               <div className="w-16 h-16 rounded-full border-4 border-indigo-200 dark:border-zinc-800 border-t-brand-indigo animate-spin mb-4" />
 
               <div className="flex items-center gap-2 mb-1.5">
                 <Cpu className="w-4 h-4 text-indigo-400 animate-pulse" />
-                <h4 className="font-bold text-zinc-900 dark:text-white text-base">
-                  Analyzing Contract with Gemini 2.5 Pro
-                </h4>
+                <h4 className="font-bold text-zinc-900 dark:text-white text-base">Analyzing contract</h4>
               </div>
 
               {/* Dynamic Step / Token Message */}
@@ -381,13 +269,13 @@ export default function UploadZone() {
                 />
               </div>
 
-              {/* Step B4 — Live Streaming Preview Panel */}
+              {/* Live Streaming Preview Panel */}
               {streamedTokens && (
                 <div className="mt-4 p-3.5 bg-black/40 dark:bg-black/70 rounded-xl border border-indigo-500/20 max-h-36 overflow-hidden relative w-full max-w-md text-left shadow-inner">
                   <div className="flex items-center justify-between mb-1.5">
                     <p className="text-xs text-indigo-400 font-mono flex items-center gap-1.5 font-semibold">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      ⚡ Gemini 2.5 Pro — Live Output
+                      Live output
                     </p>
                     <span className="text-[10px] text-zinc-400 font-mono bg-white/5 px-2 py-0.5 rounded">
                       {streamedTokens.length} tokens
@@ -413,7 +301,8 @@ export default function UploadZone() {
                 Drag &amp; drop your contract PDF here
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 max-w-sm">
-                Supports PDF, DOCX, and TXT agreements. Fast multi-page text extraction powered by PyMuPDF and analyzed with Google Gemini 2.5 Pro.
+                Supports PDF, DOCX, and TXT agreements. Fast multi-page text extraction with PyMuPDF, then a
+                document-grounded analysis from the AI engine.
               </p>
 
               <button
@@ -454,7 +343,7 @@ export default function UploadZone() {
       <div className="w-full max-w-2xl mt-8 pt-8 border-t border-zinc-200 dark:border-[#27272A] flex flex-col items-center">
         <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-semibold mb-4">
           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          <span>Quick Load Verified Contract Datasets</span>
+          <span>Quick Load Sample Contracts</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
@@ -472,7 +361,7 @@ export default function UploadZone() {
                   Load Master Agreement (v1.0)
                 </div>
                 <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Enterprise SaaS Agreement with SLA &amp; 30-day alerts
+                  Sample SaaS agreement run through the real analysis pipeline
                 </div>
               </div>
             </div>

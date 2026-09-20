@@ -10,13 +10,56 @@ import {
 
 const API_BASE = 'http://localhost:8000';
 
-export const useContractStore = create((set, get) => ({
+const ANALYSIS_STEPS = {
+  pending: 'Not analyzed yet',
+  running: 'Analysis in progress',
+  completed: 'Analysis completed',
+  failed: 'Analysis failed',
+};
+
+const describeCategory = (key) =>
+  ({
+    extract: 'Document extraction',
+    obligations: 'Obligations & SLAs',
+    timeline: 'Timeline',
+    flags: 'Risk review',
+    summary: 'Executive summary',
+    alerts: 'Deadline alerts',
+  }[key] || key);
+
+export const useContractStore = create((set, get) => {
+  // Collate per-category failures into one honest, stored-status message.
+  const summarizeErrors = (errors) => {
+    const keys = Object.keys(errors || {}).filter((k) => errors[k]);
+    if (keys.length === 0) return null;
+    const failed = keys.map((k) => describeCategory(k)).join(', ');
+    const details = keys.map((k) => `${describeCategory(k)}: ${errors[k]}`).join(' | ');
+    return `Analysis incomplete: ${failed} failed. ${details}`;
+  };
+
+  // Shared request helper for a single analysis category. On failure it never
+  // returns an empty {} (which would read as "analyzed, nothing found"); it
+  // records the error on the category and returns null so the UI can show an
+  // honest partial-failure banner with a retry action.
+  const runCategoryRequest = async (category, url, body) => {
+    try {
+      const res = await get().authedFetch(url, { method: 'POST', body: JSON.stringify(body) });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.detail || `Request failed (${res.status})`);
+      if (payload && payload.source === 'offline-demo') get().setAiDemoMode(true);
+      return payload;
+    } catch (e) {
+      console.warn(`[analysis] "${category}" failed — not shown as empty:`, e.message || e);
+      get().markAnalysisError(category, e.message || 'Request failed');
+      return null;
+    }
+  };
+
+  return {
   // Contracts state
   contracts: [],
   activeContractId: null,
-  activeTab: 'upload', // 'upload', 'overview', 'obligations', 'timeline', 'flags', 'compare', 'qa', 'summary', 'alerts'
-
-  // Specific slots for Compare view
+  activeTab: 'library', // 'library', 'upload', 'overview', 'obligations', 'timeline', 'flags', 'clauses', 'compare', 'qa', 'summary', 'alerts'
   contractA: null,
   contractB: null,
 
@@ -36,19 +79,31 @@ export const useContractStore = create((set, get) => ({
   isComparing: false,
   qaLoading: false,
   qaHistory: [],
+  // True while /contracts/{id} detail data is being fetched (skeleton state).
+  contractLoading: false,
+  // Honest error surfaced for the active contract's analysis pipeline.
+  contractError: null,
+  // Per-category failures for the active contract (category -> message).
+  // A category in this map is never presented as an empty successful result.
+  analysisErrors: {},
+  // Category currently being retried, if any.
+  retryingCategory: null,
 
   // Settings & Configuration
   theme: localStorage.getItem('cl_theme') || 'dark',
   apiKeyConfigured: true,
   isKeyModalOpen: false,
+  // True when the backend is in offline demo mode: analysis responses are the
+  // tagged sample dataset, not results generated from the submitted document.
+  aiDemoMode: false,
 
   // Authentication State (Supabase Auth)
-  user: null, // { id, email, name, role, avatar_initials, employee_id }
+  user: null,
   accessToken: null,
   isAuthenticated: false,
-  isAuthInitializing: true, // true until the persisted Supabase session has been restored
+  isAuthInitializing: true,
   isAuthModalOpen: false,
-  authModalMode: 'login', // 'login' | 'register'
+  authModalMode: 'login',
   authError: null,
   authLoading: false,
 
@@ -56,8 +111,6 @@ export const useContractStore = create((set, get) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
   setKeyModalOpen: (open) => set({ isKeyModalOpen: open }),
   setAuthModal: (open, mode = 'login') => set({ isAuthModalOpen: open, authModalMode: mode }),
-  // Toggle light/dark theme: persists the choice and applies the `dark` class
-  // to <html> so Tailwind's `dark:` variants (darkMode: 'class') take effect.
   toggleTheme: () => {
     const next = get().theme === 'dark' ? 'light' : 'dark';
     document.documentElement.classList.toggle('dark', next === 'dark');
@@ -67,7 +120,6 @@ export const useContractStore = create((set, get) => ({
 
   // ---------- Supabase Authentication ----------
 
-  // Restore a persisted session on app load.
   restoreSession: async () => {
     try {
       if (!supabase) return;
@@ -87,7 +139,6 @@ export const useContractStore = create((set, get) => ({
     }
   },
 
-  // Keep the store in sync with Supabase auth events (sign-in, sign-out, token refresh).
   subscribeToAuth: () => {
     if (!supabase) return () => {};
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
@@ -124,6 +175,7 @@ export const useContractStore = create((set, get) => ({
         isAuthenticated: true,
         authLoading: false,
         isAuthModalOpen: false,
+        activeTab: 'library',
       });
       return { success: true };
     } catch (e) {
@@ -141,8 +193,6 @@ export const useContractStore = create((set, get) => ({
         set({ authLoading: false, authError: error.message });
         return { success: false, error: error.message };
       }
-      // With email confirmation enabled, data.session is null and the user
-      // must click the confirmation link before they can sign in.
       const session = data.session;
       if (session?.user && session?.access_token) {
         set({
@@ -151,6 +201,7 @@ export const useContractStore = create((set, get) => ({
           isAuthenticated: true,
           authLoading: false,
           isAuthModalOpen: false,
+          activeTab: 'library',
         });
         return { success: true, needsEmailConfirmation: false };
       }
@@ -187,7 +238,11 @@ export const useContractStore = create((set, get) => ({
       qaHistory: [],
       contractA: null,
       contractB: null,
-      activeTab: 'upload',
+      activeTab: 'library',
+      aiDemoMode: false,
+      contractError: null,
+      analysisErrors: {},
+      retryingCategory: null,
     });
   },
 
@@ -214,7 +269,11 @@ export const useContractStore = create((set, get) => ({
       alerts: null,
       compareDiff: null,
       qaHistory: [],
-      activeTab: 'upload',
+      activeTab: 'library',
+      aiDemoMode: false,
+      contractError: null,
+      analysisErrors: {},
+      retryingCategory: null,
     });
     if (shouldSignOut) {
       try {
@@ -227,31 +286,44 @@ export const useContractStore = create((set, get) => ({
 
   // Streaming & Progressive Loading Setters
   setProcessing: (step) => set({ isAnalyzing: true, analysisStep: step }),
-  setProcessingError: (err) => set({ isAnalyzing: false, analysisStep: '', errorMsg: err }),
+  setProcessingError: (err) => set({ isAnalyzing: false, analysisStep: '', contractError: err }),
   setStreamedTokens: (tokens) => set({ streamedTokens: tokens }),
-  setExtractedData: (data) => set({ extractedData: data }),
-  setObligations: (obligations) => set({ obligations: obligations || [] }),
-  setTimeline: (timeline) => set({ timeline: timeline || [] }),
-  setFlags: (flags) => set({ flags: flags || [] }),
-  setSummary: (summary) => set({ summary: summary || null }),
-  setAlerts: (alerts) => set({ alerts: alerts || null }),
+  setAiDemoMode: (enabled) => set({ aiDemoMode: !!enabled }),
+  setExtractedData: (data) =>
+    set({ extractedData: data, ...(data && data.source === 'offline-demo' ? { aiDemoMode: true } : {}) }),
+  setObligations: (obligations) =>
+    set({ obligations: obligations || [], ...(obligations && obligations.source === 'offline-demo' ? { aiDemoMode: true } : {}) }),
+  setTimeline: (timeline) =>
+    set({ timeline: timeline || [], ...(timeline && timeline.source === 'offline-demo' ? { aiDemoMode: true } : {}) }),
+  setFlags: (flags) =>
+    set({ flags: flags || [], ...(flags && flags.source === 'offline-demo' ? { aiDemoMode: true } : {}) }),
+  setSummary: (summary) =>
+    set({ summary: summary || null, ...(summary && summary.source === 'offline-demo' ? { aiDemoMode: true } : {}) }),
+  setAlerts: (alerts) =>
+    set({ alerts: alerts || null, ...(alerts && alerts.source === 'offline-demo' ? { aiDemoMode: true } : {}) }),
+
   setContractReady: ({ name, rawText, pages, wordCount, id, contractObj }) => {
     const cid = id || (contractObj && contractObj.id) || ('c_' + Date.now());
+    const existingSlice = get().contracts.find((c) => c.id === cid) || {};
     const enriched = {
       ...(contractObj || {}),
+      ...existingSlice,
       id: cid,
       filename: name || (contractObj && contractObj.filename) || 'contract.pdf',
       title: (name || (contractObj && contractObj.filename) || 'Contract').replace(/\.[^/.]+$/, ''),
-      text: rawText || (contractObj && contractObj.text) || '',
-      pages: pages || (contractObj && contractObj.pages) || 1,
-      wordCount: wordCount || (contractObj && contractObj.wordCount) || (rawText ? rawText.split(/\s+/).length : 0),
+      text: rawText || (contractObj && contractObj.text) || existingSlice.text || '',
+      pages: pages || existingSlice.pages || 1,
+      wordCount: wordCount || existingSlice.wordCount || (rawText ? rawText.split(/\s+/).length : 0),
+      extension: (name || (existingSlice && existingSlice.filename) || 'pdf').split('.').pop(),
       extractedData: get().extractedData,
       obligations: get().obligations,
       timeline: get().timeline,
       flags: get().flags,
       summary: get().summary,
       alerts: get().alerts,
+      analysis_status: 'completed',
       analyzedAt: new Date().toISOString(),
+      analysisErrors: {},
     };
     const existing = get().contracts.filter((c) => c.id !== enriched.id);
     set({
@@ -261,6 +333,7 @@ export const useContractStore = create((set, get) => ({
       isAnalyzing: false,
       analysisStep: '',
       streamedTokens: '',
+      contractError: null,
       activeTab: 'overview',
     });
   },
@@ -275,7 +348,9 @@ export const useContractStore = create((set, get) => ({
       flags: contract.flags || [],
       summary: contract.summary || null,
       alerts: contract.alerts || null,
-      activeTab: 'overview',
+      contractError: null,
+      analysisErrors: contract.analysisErrors || {},
+      retryingCategory: null,
     });
   },
 
@@ -302,15 +377,46 @@ export const useContractStore = create((set, get) => ({
     return Math.max(0, Math.min(100, calculated));
   },
 
-  // Full AI Analysis Pipeline triggered after document upload/load (Progressive 2-Batch Loading)
+  // Persist the analysis lifecycle status for the active/uploaded contract.
+  setAnalysisStatus: async (contractId, analysisStatus, analysisError) => {
+    if (!contractId) return;
+    try {
+      await get().authedFetch(`${API_BASE}/contracts/${contractId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ analysis_status: analysisStatus, analysis_error: analysisError || null }),
+      });
+      set({
+        contracts: get().contracts.map((c) =>
+          c.id === contractId ? { ...c, analysis_status: analysisStatus, analysis_error: analysisError || null } : c
+        ),
+      });
+      if (get().activeContractId === contractId) {
+        set({ contractError: analysisStatus === 'failed' ? analysisError : null });
+      }
+    } catch (e) {
+      console.warn(`Could not persist analysis_status ${analysisStatus} for ${contractId}:`, e);
+    }
+  },
+
+  // Full AI Analysis Pipeline (Progressive 2-Batch Loading)
   analyzeContract: async (contractObj, autoNavigate = true) => {
     const today = new Date().toISOString().split('T')[0];
     const contractId = contractObj.contract_id || contractObj.id;
-    set({ isAnalyzing: true, analysisStep: 'Analyzing terms, obligations & risk clauses...' });
+    if (!contractId) return { success: false, error: 'No contract id to persist analysis against.' };
+    set({
+      isAnalyzing: true,
+      analysisStep: 'Analyzing terms, obligations & risk clauses...',
+      contractError: null,
+      analysisErrors: {},
+      retryingCategory: null,
+    });
+    get().setAnalysisStatus(contractId, 'running');
 
     try {
-      // Stream extract (slowest + most tokens) with live token tracking
-      const extractStreamPromise = (async () => {
+      // Extract (slowest + most tokens): SSE stream, falling back to the
+      // non-stream endpoint. On total failure the category is recorded as an
+      // error — never silently converted into an empty result.
+      const extractPromise = (async () => {
         try {
           const res = await get().authedFetch(`${API_BASE}/extract/stream`, {
             method: 'POST',
@@ -323,12 +429,15 @@ export const useContractStore = create((set, get) => ({
           });
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
+          let rawText = '';
           let accumulated = '';
           let resultData = null;
+          let streamError = null;
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             const raw = decoder.decode(value, { stream: true });
+            rawText += raw;
             const lines = raw.split('\n').filter((l) => l.startsWith('data: '));
             for (const line of lines) {
               try {
@@ -337,57 +446,91 @@ export const useContractStore = create((set, get) => ({
                   accumulated += event.text;
                   set({
                     streamedTokens: accumulated,
-                    analysisStep: `Gemini is reading your contract... (${accumulated.length} tokens)`,
+                    analysisStep: `Reading contract... (${accumulated.length} tokens)`,
                   });
                 } else if (event.type === 'complete') {
-                  resultData = event.data;
+                  resultData = event.data || {};
+                } else if (event.type === 'error') {
+                  streamError = event.message;
                 }
-              } catch (e) {}
+              } catch {
+                // ignored: non-SSE line or malformed event
+              }
             }
           }
-          return resultData || {};
+          if (streamError) throw new Error(streamError);
+          if (res.status !== 200) {
+            let detail = `Extract stream failed (${res.status})`;
+            try {
+              const j = JSON.parse(rawText);
+              if (j && j.detail) detail = j.detail;
+            } catch {
+              // raw body was not JSON — keep the status-line detail
+            }
+            throw new Error(detail);
+          }
+          return resultData || null;
         } catch (e) {
-          // Fallback to regular extract if stream had error
-          const res = await get().authedFetch(`${API_BASE}/extract`, {
-            method: 'POST',
-            body: JSON.stringify({
-              text: contractObj.text,
-              filename: contractObj.filename || 'contract.pdf',
-              ref_date: today,
-              contract_id: contractId,
-            }),
-          });
-          return await res.json();
+          console.warn('Stream extract failed, falling back to non-stream endpoint:', e.message);
+          try {
+            const res = await get().authedFetch(`${API_BASE}/extract`, {
+              method: 'POST',
+              body: JSON.stringify({
+                text: contractObj.text,
+                filename: contractObj.filename || 'contract.pdf',
+                ref_date: today,
+                contract_id: contractId,
+              }),
+            });
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(payload.detail || `Extract failed (${res.status})`);
+            return payload;
+          } catch (e2) {
+            get().markAnalysisError('extract', e2.message || 'Extract failed');
+            return null;
+          }
         }
       })();
 
-      // Batch 1 (Parallel): Core extraction, obligations, and risk flags
-      const [extractedData, obData, flagData] = await Promise.all([
-        extractStreamPromise,
-        get().authedFetch(`${API_BASE}/obligations`, {
-          method: 'POST',
-          body: JSON.stringify({ text: contractObj.text, ref_date: today, contract_id: contractId }),
-        }).then((r) => r.json()),
-        get().authedFetch(`${API_BASE}/flags`, {
-          method: 'POST',
-          body: JSON.stringify({ text: contractObj.text, ref_date: today, contract_id: contractId }),
-        }).then((r) => r.json()),
+      // Batch 1 (Parallel): obligations, timeline and risk flags. A failing
+      // category returns null and is recorded — never an empty {} that would
+      // pretend the analysis succeeded.
+      const [extractedData, obData, tlData, flagData] = await Promise.all([
+        extractPromise,
+        runCategoryRequest('obligations', `${API_BASE}/obligations`, {
+          text: contractObj.text,
+          ref_date: today,
+          contract_id: contractId,
+        }),
+        runCategoryRequest('timeline', `${API_BASE}/timeline`, {
+          text: contractObj.text,
+          ref_date: today,
+          contract_id: contractId,
+        }),
+        runCategoryRequest('flags', `${API_BASE}/flags`, {
+          text: contractObj.text,
+          ref_date: today,
+          contract_id: contractId,
+        }),
       ]);
 
-      const obligations = obData.obligations || [];
-      const flags = flagData.flags || [];
+      const obligations = obData?.obligations || [];
+      const timeline = tlData?.timeline || [];
+      const flags = flagData?.flags || [];
 
       // Immediately unblock user and show Overview
       const initialEnriched = {
         ...contractObj,
-        id: contractId || contractObj.id,
+        id: contractId,
         extractedData,
         obligations,
         flags,
-        timeline: [],
+        timeline,
         summary: null,
         alerts: null,
+        analysis_status: 'running',
         analyzedAt: new Date().toISOString(),
+        analysisErrors: {},
       };
 
       const existing = get().contracts.filter((c) => c.id !== initialEnriched.id);
@@ -398,51 +541,193 @@ export const useContractStore = create((set, get) => ({
         extractedData,
         obligations,
         flags,
+        timeline,
         isAnalyzing: false,
         activeTab: autoNavigate ? 'overview' : get().activeTab,
       });
 
-      // Batch 2 (Background): Timeline, Executive Summary, Proactive Alerts
-      Promise.all([
-        get().authedFetch(`${API_BASE}/timeline`, {
-          method: 'POST',
-          body: JSON.stringify({ text: contractObj.text, ref_date: today }),
-        }).then(r => r.json()),
-        get().authedFetch(`${API_BASE}/summary`, {
-          method: 'POST',
-          body: JSON.stringify({ text: contractObj.text, ref_date: today }),
-        }).then(r => r.json()),
-        get().authedFetch(`${API_BASE}/alerts?today=${today}`, {
-          method: 'POST',
-          body: JSON.stringify({ text: contractObj.text }),
-        }).then(r => r.json()),
-      ]).then(([tlData, summary, alerts]) => {
-        const timeline = tlData.timeline || [];
-        const fullyEnriched = {
-          ...initialEnriched,
-          timeline,
-          summary,
-          alerts,
-        };
-        const updatedContracts = get().contracts.map((c) =>
-          c.id === initialEnriched.id ? fullyEnriched : c
-        );
-        set({
-          contracts: updatedContracts,
-          timeline,
-          summary,
-          alerts,
-        });
-      }).catch(err => {
-        console.warn('Batch 2 background processing note:', err);
-      });
+      // Batch 2 (Background): Executive Summary and Proactive Alerts.
+      // Awaited so the final status is decided once, truthfully — the
+      // background promise can no longer race and overwrite the failure.
+      const [summaryResult, alertsResult] = await Promise.all([
+        runCategoryRequest('summary', `${API_BASE}/summary`, {
+          text: contractObj.text,
+          ref_date: today,
+          contract_id: contractId,
+        }),
+        runCategoryRequest('alerts', `${API_BASE}/alerts?today=${today}`, {
+          text: contractObj.text,
+          contract_id: contractId,
+        }),
+      ]);
 
-      return { success: true };
+      const mergedSummary = summaryResult || null;
+      const mergedAlerts = alertsResult || null;
+
+      // Honest lifecycle: 'completed' ONLY when every category succeeded.
+      const analysisErrors = { ...get().analysisErrors };
+      const failedCategories = Object.keys(analysisErrors).filter((k) => analysisErrors[k]);
+      const analysisError = summarizeErrors(analysisErrors);
+      const status = failedCategories.length === 0 ? 'completed' : 'failed';
+
+      const fullyEnriched = {
+        ...initialEnriched,
+        summary: mergedSummary,
+        alerts: mergedAlerts,
+        analysis_status: status,
+        analysis_error: analysisError,
+        analysisErrors,
+      };
+
+      const updatedContracts = get().contracts.map((c) =>
+        c.id === initialEnriched.id ? fullyEnriched : c
+      );
+      set({
+        contracts: updatedContracts,
+        summary: mergedSummary,
+        alerts: mergedAlerts,
+        analysisStep: '',
+        contractError: status === 'failed' ? analysisError : null,
+      });
+      get().setAnalysisStatus(contractId, status, analysisError);
+
+      return {
+        success: status === 'completed',
+        error: analysisError,
+        partial: failedCategories,
+      };
     } catch (err) {
       console.error('Error analyzing contract:', err);
-      set({ isAnalyzing: false, analysisStep: '' });
-      return { success: false, error: err.message };
+      const message = err.message || 'Analysis failed. Check the backend / Gemini configuration.';
+      set({ isAnalyzing: false, analysisStep: '', contractError: message });
+      get().setAnalysisStatus(contractId, 'failed', message);
+      return { success: false, error: message };
     }
+  },
+
+  // Record a single failed analysis category so the UI can surface an honest
+  // per-category error with a retry action instead of an empty slice.
+  markAnalysisError: (category, message) => {
+    if (!message) return;
+    set({ analysisErrors: { ...get().analysisErrors, [category]: message } });
+  },
+
+  // Clear a category error after a successful retry.
+  clearAnalysisError: (category) => {
+    const next = { ...get().analysisErrors };
+    delete next[category];
+    set({ analysisErrors: next });
+  },
+
+  // Re-run a single failed analysis category against the persisted contract
+  // text. On success the category's data replaces the previous empty/stale
+  // slice and the lifecycle status is re-evaluated honestly.
+  retryAnalysisCategory: async (category) => {
+    const { activeContractId, contracts } = get();
+    const contract = contracts.find((c) => c.id === activeContractId);
+    if (!contract || !contract.text) {
+      return { success: false, error: 'Contract text is not available for retry.' };
+    }
+    const today = new Date().toISOString().split('T')[0];
+    set({
+      retryingCategory: category,
+      analysisStep: `Retrying ${describeCategory(category)}…`,
+      contractError: null,
+    });
+
+    let payload = null;
+    if (category === 'extract') {
+      try {
+        const res = await get().authedFetch(`${API_BASE}/extract`, {
+          method: 'POST',
+          body: JSON.stringify({
+            text: contract.text,
+            filename: contract.filename || 'contract.pdf',
+            ref_date: today,
+            contract_id: contract.id,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || `Extract failed (${res.status})`);
+        if (data && data.source === 'offline-demo') get().setAiDemoMode(true);
+        payload = data;
+      } catch (e) {
+        get().markAnalysisError('extract', e.message || 'Extract failed');
+      }
+    } else {
+      const urls = {
+        obligations: `${API_BASE}/obligations`,
+        timeline: `${API_BASE}/timeline`,
+        flags: `${API_BASE}/flags`,
+        summary: `${API_BASE}/summary`,
+        alerts: `${API_BASE}/alerts?today=${today}`,
+      };
+      const url = urls[category];
+      if (!url) {
+        set({ retryingCategory: null, analysisStep: '' });
+        return { success: false, error: `Unknown analysis category: ${category}` };
+      }
+      payload = await runCategoryRequest(category, url, {
+        text: contract.text,
+        ref_date: today,
+        contract_id: contract.id,
+      });
+    }
+
+    if (payload) {
+      const patch = {};
+      if (category === 'obligations') patch.obligations = payload.obligations || [];
+      else if (category === 'timeline') patch.timeline = payload.timeline || [];
+      else if (category === 'flags') patch.flags = payload.flags || [];
+      else if (category === 'summary') patch.summary = payload;
+      else if (category === 'alerts') patch.alerts = payload;
+      else if (category === 'extract') patch.extractedData = payload;
+      const latest = get().contracts.find((c) => c.id === contract.id) || contract;
+      const updated = { ...latest, ...patch };
+      set({
+        contracts: get().contracts.map((c) => (c.id === updated.id ? updated : c)),
+        ...patch,
+      });
+      get().clearAnalysisError(category);
+    }
+
+    const remaining = Object.keys(get().analysisErrors).filter((k) => get().analysisErrors[k]);
+    const analysisError = summarizeErrors(get().analysisErrors);
+    const status = remaining.length === 0 ? 'completed' : 'failed';
+    set({
+      contracts: get().contracts.map((c) =>
+        c.id === contract.id ? { ...c, analysis_status: status, analysis_error: analysisError } : c
+      ),
+      contractError: status === 'failed' && get().activeContractId === contract.id ? analysisError : null,
+      isAnalyzing: false,
+      analysisStep: '',
+      retryingCategory: null,
+    });
+    get().setAnalysisStatus(contract.id, status, analysisError);
+    return { success: status === 'completed' };
+  },
+
+  // Re-run the full analysis for an already-persisted contract.
+  reanalyzeContract: async (contractId) => {
+    const found = get().contracts.find((c) => c.id === contractId);
+    const text = found?.text || '';
+    if (!text) {
+      try {
+        const res = await get().authedFetch(`${API_BASE}/contracts/${contractId}`);
+        const detail = await res.json();
+        const loaded = { ...detail, text: detail.raw_text || '' };
+        if (!loaded.text) return { success: false, error: 'Contract text is not available for re-analysis.' };
+        return get().analyzeContract({
+          ...loaded,
+          id: contractId,
+          text: loaded.text,
+          filename: detail.name || 'contract.pdf',
+        });
+      } catch {
+        return { success: false, error: 'Could not load contract text for re-analysis.' };
+      }
+    }
+    return get().analyzeContract({ ...found, text });
   },
 
   authHeaders: async () => {
@@ -477,29 +762,41 @@ export const useContractStore = create((set, get) => ({
         const merged = [...currentContracts];
         for (const remote of remoteList) {
           const idx = merged.findIndex(c => c.id === remote.id);
+          const base = {
+            id: remote.id,
+            title: remote.name ? remote.name.replace(/\.[^/.]+$/, '') : 'Contract Document',
+            filename: remote.name || 'contract.pdf',
+            extension: (remote.name || 'pdf').split('.').pop(),
+            status: remote.status || 'active',
+            uploaded_at: remote.uploaded_at,
+            health_score: remote.health_score || 78,
+            text: remote.raw_text || '',
+            pages: remote.pages || 1,
+            word_count: remote.word_count || 0,
+            file_type: remote.file_type || (remote.name || '').split('.').pop() || '',
+            file_size_bytes: remote.file_size_bytes,
+            document_type: remote.document_type || '',
+            analysis_status: remote.analysis_status || 'pending',
+            analysis_error: remote.analysis_error || null,
+            analyzed_at: remote.analyzed_at || null,
+            analysisErrors: {},
+            obligations: [],
+            flags: [],
+            timeline: remote.timeline || [],
+            summary: remote.summary || null,
+            alerts: remote.alerts || null,
+          };
           if (idx >= 0) {
-            merged[idx] = { ...merged[idx], ...remote, title: remote.name || merged[idx].title };
+            merged[idx] = { ...merged[idx], ...base, title: base.title || merged[idx].title };
           } else {
-            merged.push({
-              id: remote.id,
-              title: remote.name || 'Contract Document',
-              filename: remote.name || 'contract.pdf',
-              status: remote.status || 'active',
-              uploaded_at: remote.uploaded_at,
-              health_score: remote.health_score || 78,
-              text: remote.raw_text || '',
-              pages: 1,
-              obligations: [],
-              flags: [],
-              timeline: [],
-              summary: null,
-              alerts: null,
-            });
+            merged.push(base);
           }
         }
         set({ contracts: merged });
+        // Restore the most recent contract fully (child-table data + analysis)
+        // so the saved analysis is visible right after sign-in / reload.
         if (!get().activeContractId && merged.length > 0) {
-          get().setActiveContract(merged[0]);
+          get().loadContractById(merged[0].id);
         }
       }
     } catch (e) {
@@ -508,6 +805,7 @@ export const useContractStore = create((set, get) => ({
   },
 
   loadContractById: async (contractId) => {
+    set({ contractLoading: true });
     try {
       const res = await get().authedFetch(`${API_BASE}/contracts/${contractId}`);
       if (!res.ok) {
@@ -518,17 +816,27 @@ export const useContractStore = create((set, get) => ({
       const data = await res.json();
       const updated = {
         id: data.id,
-        title: data.name,
-        filename: data.name,
-        text: data.raw_text,
+        title: data.name ? data.name.replace(/\.[^/.]+$/, '') : 'Contract Document',
+        filename: data.name || 'contract.pdf',
+        extension: (data.name || 'pdf').split('.').pop(),
+        text: data.raw_text || '',
         status: data.status,
         uploaded_at: data.uploaded_at,
+        document_type: data.document_type || '',
+        file_type: data.file_type || (data.name || '').split('.').pop() || '',
+        pages: data.pages || 1,
+        word_count: data.word_count || 0,
+        file_size_bytes: data.file_size_bytes,
+        analysis_status: data.analysis_status || 'pending',
+        analysis_error: data.analysis_error || null,
+        analyzed_at: data.analyzed_at || null,
+        analysisErrors: {},
         extractedData: data.extractedData,
         obligations: data.obligations || [],
         flags: data.flags || [],
-        timeline: [],
-        summary: null,
-        alerts: null,
+        timeline: data.timeline || [],
+        summary: data.summary || null,
+        alerts: data.alerts || null,
       };
       const existing = get().contracts.filter(c => c.id !== data.id);
       set({
@@ -536,13 +844,19 @@ export const useContractStore = create((set, get) => ({
         activeContractId: updated.id,
         extractedData: updated.extractedData,
         obligations: updated.obligations,
+        timeline: updated.timeline,
         flags: updated.flags,
-        activeTab: 'overview',
+        summary: updated.summary,
+        alerts: updated.alerts,
+        contractError: updated.analysis_status === 'failed' ? updated.analysis_error : null,
+        aiDemoMode: false,
       });
     } catch (e) {
       console.error('Error loading contract from Supabase:', e);
       const found = get().contracts.find(c => c.id === contractId);
       if (found) get().setActiveContract(found);
+    } finally {
+      set({ contractLoading: false });
     }
   },
 
@@ -568,8 +882,10 @@ export const useContractStore = create((set, get) => ({
         timeline: [],
         summary: null,
         alerts: null,
-        activeTab: 'upload',
+        activeTab: 'library',
       });
+    } else if (wasActive) {
+      set({ activeTab: 'library' });
     }
   },
 
@@ -590,10 +906,11 @@ export const useContractStore = create((set, get) => ({
         }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Comparison failed');
       set({ compareDiff: data, isComparing: false });
     } catch (err) {
       console.error('Compare failed:', err);
-      set({ isComparing: false });
+      set({ compareDiff: null, isComparing: false, contractError: 'Comparison failed.' });
     }
   },
 
@@ -619,6 +936,7 @@ export const useContractStore = create((set, get) => ({
         }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Q&A failed (${res.status})`);
 
       const newEntry = {
         id: Date.now().toString(),
@@ -636,7 +954,7 @@ export const useContractStore = create((set, get) => ({
       });
     } catch (err) {
       console.error('QA request failed:', err);
-      set({ qaLoading: false });
+      set({ qaLoading: false, contractError: 'Q&A failed: ' + err.message });
     }
   },
 
@@ -647,7 +965,7 @@ export const useContractStore = create((set, get) => ({
     try {
       const res = await fetch(`${API_BASE}/health`);
       const data = await res.json();
-      set({ apiKeyConfigured: data.gemini_configured });
+      set({ apiKeyConfigured: data.gemini_configured, aiDemoMode: !!data.fallback_mode });
     } catch (e) {
       console.warn('Backend not responding to health check yet:', e);
     }
@@ -661,11 +979,14 @@ export const useContractStore = create((set, get) => ({
         body: JSON.stringify({ api_key: key }),
       });
       const data = await res.json();
-      set({ apiKeyConfigured: data.gemini_configured });
+      set({ apiKeyConfigured: data.gemini_configured, aiDemoMode: !data.gemini_configured });
       return true;
     } catch (e) {
       console.error('Failed to save key:', e);
       return false;
     }
   },
-}));
+  };
+});
+
+export { ANALYSIS_STEPS };

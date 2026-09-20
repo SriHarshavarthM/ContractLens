@@ -2,7 +2,7 @@ import re
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
-from services.gemini_client import call_gemini
+from services.gemini_client import call_gemini, GeminiRequestError
 from services.supabase_client import data_client
 from services.security import get_current_user
 from services.ownership import owns_contract
@@ -16,7 +16,10 @@ class ObligationsRequest(BaseModel):
 
 SYSTEM_PROMPT = (
     "You are a contract obligations analyst. Identify every obligation for every party. "
-    "Return ONLY raw JSON: { obligations: [{party, description, deadline, urgency: 'Critical|High|Medium|Low', source_clause}] }. "
+    "Return ONLY raw JSON: { obligations: [{party, description, deadline, frequency, "
+    "obligation_type, urgency: 'Critical|High|Medium|Low', source_clause}] }. "
+    "obligation_type is one of Payment, Performance, Reporting, Notice, Cooperation, Compliance, Other. "
+    "frequency is one of One-time, Daily, Weekly, Monthly, Quarterly, Annual, Upon-request or '' for one-off actions. "
     "Urgency rules — Critical: <7 days or non-negotiable legal consequence. High: <30 days or financial penalty. "
     "Medium: standard delivery. Low: informational. "
     "Return ONLY a raw JSON object. No markdown. No explanation. No code fences."
@@ -32,8 +35,11 @@ def sanitize_date(d):
 async def get_obligations(req: ObligationsRequest, current_user: dict = Depends(get_current_user)):
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Contract text is required")
-    
-    result = call_gemini(SYSTEM_PROMPT, req.text)
+
+    try:
+        result = call_gemini(SYSTEM_PROMPT, req.text)
+    except GeminiRequestError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     obligations_list = result.get("obligations", [])
 
     client = data_client(current_user)
@@ -51,8 +57,14 @@ async def get_obligations(req: ObligationsRequest, current_user: dict = Depends(
                     "deadline": sanitize_date(ob.get("deadline")),
                     "urgency": urgency,
                     "source_clause": str(ob.get("source_clause", "")),
+                    "obligation_type": str(ob.get("obligation_type", "") or ""),
+                    "frequency": str(ob.get("frequency", "") or ""),
                     "is_dismissed": False
                 })
+            if records:
+                # Replace any previous obligations for this contract so
+                # re-analysis never mixes stale results with fresh ones.
+                client.table("obligations").delete().eq("contract_id", req.contract_id).execute()
             client.table("obligations").insert(records).execute()
         except Exception as e:
             print(f"[obligations.py] Supabase save error: {e}")

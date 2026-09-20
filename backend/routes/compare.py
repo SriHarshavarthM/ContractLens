@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
-from services.gemini_client import call_gemini
+from services.gemini_client import call_gemini, GeminiRequestError
 from services.security import get_current_user
 
 router = APIRouter()
@@ -25,5 +25,8 @@ async def compare_contracts(req: CompareRequest, current_user: dict = Depends(ge
         raise HTTPException(status_code=400, detail="Both Contract A and Contract B are required")
     
     combined_content = f"--- CONTRACT A ({req.contract_a_title}) ---\n{req.contract_a}\n\n--- CONTRACT B ({req.contract_b_title}) ---\n{req.contract_b}"
-    result = call_gemini(SYSTEM_PROMPT, combined_content, ref_date_str=req.ref_date)
+    try:
+        result = call_gemini(SYSTEM_PROMPT, combined_content, ref_date_str=req.ref_date)
+    except GeminiRequestError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     return result

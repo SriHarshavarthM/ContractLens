@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict
-from services.gemini_client import call_gemini
+from services.gemini_client import call_gemini, GeminiRequestError
 from services.security import get_current_user
 
 router = APIRouter()
@@ -37,5 +37,8 @@ async def answer_question(req: QARequest, current_user: dict = Depends(get_curre
         )
 
     user_content = f"{req.contract_text}\n\n{history_context}\n\nUser Question: {req.question}"
-    result = call_gemini(SYSTEM_PROMPT, user_content, ref_date_str=req.ref_date)
+    try:
+        result = call_gemini(SYSTEM_PROMPT, user_content, ref_date_str=req.ref_date)
+    except GeminiRequestError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     return result
